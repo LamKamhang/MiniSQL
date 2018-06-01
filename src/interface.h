@@ -18,7 +18,7 @@
 #include <string>
 #include <Cstring>
 #include <iostream>
-#include <stringstream>
+#include <sstream>
 #include <vector>
 #include <stdexcept>
 
@@ -35,7 +35,7 @@ namespace MINISQL_BASE {
         Float, 
         String,
     };
-    typedef AttributeType sqlValueType;
+    typedef AttributeType SqlValueType;
 
     // 操作符的类型
     enum Operator{
@@ -46,7 +46,7 @@ namespace MINISQL_BASE {
         GE,
         LT,
         GT,
-    }
+    };
 
     /*
     * class: Attribute
@@ -77,10 +77,10 @@ namespace MINISQL_BASE {
             ~Attribute(){};
 
             // set some inner info.
-            void setType(const AttributeType &type) {this.type = type;}
-            void setName(const std::string &name)   {this.name = name;}
-            void setPrimary(const bool &primary)    {if (this.primary = primary) unique = true;}
-            void setUnique(const bool &unique)      {this.unique = unique;}
+            void setType(const AttributeType &type) {this->type = type;}
+            void setName(const std::string &name)   {this->name = name;}
+            void setPrimary(const bool &primary)    {if (this->primary = primary) unique = true;}
+            void setUnique(const bool &unique)      {this->unique = unique;}
 
             // some methods to get inner info.
             AttributeType getType()     {return type;}
@@ -101,7 +101,7 @@ namespace MINISQL_BASE {
             std::string str;
             int i;
             float f;
-            sqlValueType type;
+            SqlValueType type;
             size_t charSize;
 
         public:
@@ -143,24 +143,24 @@ namespace MINISQL_BASE {
             // set sqlValue info.
             void setStr(std::string &str)
             {
-                this.str = str;
+                this->str = str;
                 type = String;
                 charSize = str.size();
             }
             void setStr(const char *str)
             {
-                this.str = std::string(str);
+                this->str = std::string(str);
                 type = String;
                 charSize = strlen(str);
             }
             void setInteger(int i)
             {
-                this.i = i;
+                this->i = i;
                 type = Integer;
             }
             void setFloat(float f)
             {
-                this.f = f;
+                this->f = f;
                 type = Float;
             }
 
@@ -186,7 +186,7 @@ namespace MINISQL_BASE {
             }
 
             // relation operation
-            bool operator <(const sqlValue &rhs) const
+            bool operator <(const SqlValue &rhs) const
             {
                 switch(type)
                 {
@@ -196,7 +196,7 @@ namespace MINISQL_BASE {
                     default: throw std::runtime_error("Undefined Type!");
                 }
             }
-            bool operator >(const sqlValue &rhs) const
+            bool operator >(const SqlValue &rhs) const
             {
                 switch(type)
                 {
@@ -206,7 +206,7 @@ namespace MINISQL_BASE {
                    default: throw std::runtime_error("Undefined Type!");
                 }
             }
-            bool operator ==(const sqlValue &rhs) const
+            bool operator ==(const SqlValue &rhs) const
             {
                 switch(type)
                 {
@@ -216,7 +216,7 @@ namespace MINISQL_BASE {
                     default: throw std::runtime_error("Undefined Type!");
                 }
             }
-            bool operator !=(const sqlValue &rhs) const
+            bool operator !=(const SqlValue &rhs) const
             {
                 switch(type)
                 {
@@ -226,7 +226,7 @@ namespace MINISQL_BASE {
                    default: throw std::runtime_error("Undefined Type!");
                 }
             }
-            bool operator <=(const sqlValue &rhs) const
+            bool operator <=(const SqlValue &rhs) const
             {
                 switch(type)
                 {
@@ -236,7 +236,7 @@ namespace MINISQL_BASE {
                     default: throw std::runtime_error("Undefined Type!");
                 }
             }
-            bool operator >=(const sqlValue &rhs) const
+            bool operator >=(const SqlValue &rhs) const
             {
                 switch(type)
                 {
@@ -262,7 +262,7 @@ namespace MINISQL_BASE {
         public:
             // constructor and destructor.
             Condition() = default;
-            Coundtion(const std::string &attr, const operator op, const SqlValue &val):
+            Condition(const std::string &attr, const Operator op, const SqlValue &val):
                 attr(attr), op(op), val(val)
             {
             };
@@ -270,14 +270,14 @@ namespace MINISQL_BASE {
 
             bool check(const SqlValue &lhs) const
             {
-                switch(cond)
+                switch(op)
                 {
                     case EQ:return lhs == val;
                     case NE:return lhs != val;
                     case LE:return lhs <= val;
-                    case GE:return lhs ?= val;
+                    case GE:return lhs >= val;
                     case LT:return lhs <  val;
-                    case GT:return lsh >  val;
+                    case GT:return lhs >  val;
                     default: throw std::runtime_error("CONDITION TYPE ERROR!");
                 }
             }
