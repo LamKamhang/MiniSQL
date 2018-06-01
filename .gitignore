@@ -1,32 +1,12 @@
-# Prerequisites
-*.d
+# build folder
+build
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# debug folder
+Debug
 
-# Precompiled Headers
-*.gch
-*.pch
+# vs setting
+.vs
+*.vcxproj.filters
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
+# vscode setting
+.vscode 
