@@ -92,7 +92,42 @@
 
 输入提示符
 
-[database_name =#]处理当前行
+[database_name =>]处理当前行
 
-[database_name -#]处于多行处理中
+[database_name ->]处于多行处理中
+
+---
+
+```c++
+enum
+{
+	SYNTAX_ERROR,
+    INSERT,
+    CREATE_TABLE,
+    CREATE_INDEX,
+    CREATE_DATABASE,
+    DROP_TABLE,
+    DROP_INDEX,
+    DROP_DATABASE,
+    DELETE,
+    INSERT,
+    UPDATE,
+    EXECFILE,
+    HELP,
+    QUIT,
+    // 下面是我瞎想的，实现也比较简单，只要和catalog manager交互就可以了。
+    /*
+    SYSTEM_LIST_TABLE,
+    SYSTEM_LIST_TABLE_ATTRIBUTES,
+    SYSTEM_SHOW_LOGIN_INFO,
+    SYSTEM_HELP,
+    SYSTEM_EXECFILE,
+    SYSTEM_QUIT,
+    */
+}
+/*
+参照方老板的，感觉interpreter可以只是一个类就好啦，毕竟输入的syntax是固定的，我们对每一个开头的字符判断，初步判定类型语句类型，然后再丢到各自的语句函数里面再次检测syntax。如果是没问题的再往API里面传，传分隔之后的属性，表名/属性名/值/条件/TYPE，或者API也设计多个函数去做处理也没问题。
+然后用stringstream来存控制台输入流或者文件输入流。然后再去处理分隔。
+*/
+```
 
