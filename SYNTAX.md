@@ -6,15 +6,15 @@
 
 #### create
 
-- [ ] create table `表名` (
+- [ ] ​	create table `表名` (
 
-  ​	`属性名` `类型` [`unique/primary key`],
+  ​	 `属性名` `类型` [`unique/primary key`],
 
-  ​	`属性名` `类型` [`unique/primary key`],
+  ​	 `属性名` `类型` [`unique/primary key`],
 
   ​	...
 
-  ​	`属性名` `类型` [`unique/primary key`],
+  ​	 `属性名` `类型` [`unique/primary key`],
 
   ​	[`primary key (属性名)`]
 
@@ -41,7 +41,7 @@
 
 #### update
 
-- [ ] 
+- [ ] update `表名` set `属性1 = 值1`, `属性2=值2`,...,`属性n=值n` [where `条件`];
 
 #### execfile
 
