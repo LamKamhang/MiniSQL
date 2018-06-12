@@ -116,9 +116,9 @@ namespace MINISQL_BASE {
             SqlValue(int i)           : i(i),     type(Integer) {};
             SqlValue(float f)         : f(f),     type(Float)   {};
             SqlValue(std::string &str, unsigned int charSize): str(str), type(String), charSize(charSize) 
-                {if(str.size() > charSize)  throw std::runtime_error("The str name size is overflow!")};
+                {if(str.size() > charSize)  throw std::runtime_error("The str name size is overflow!");};
             SqlValue(const char *str,  unsigned int charSize) : str(str), type(String), charSize(charSize) 
-                {if(strlen(str) > charSize) throw std::runtime_error("The str name size is overflow!")};
+                {if(strlen(str) > charSize) throw std::runtime_error("The str name size is overflow!");};
             ~SqlValue(){};
 
             // get sqlvalue info.
@@ -155,15 +155,15 @@ namespace MINISQL_BASE {
                 type = String;
                 this->charSize = charSize;
                 if (str.size() > charSize)
-                    throw std::runtime_error("The str name size is overflow!")
+                    throw std::runtime_error("The str name size is overflow!");
             }
             void setStr(const char *str, unsigned int charSize)
             {
                 this->str = std::string(str);
                 type = String;
                 this->charSize = charSize;
-                if (str.size() > charSize)
-                    throw std::runtime_error("The str name size is overflow!")
+                if (strlen(str) > charSize)
+                    throw std::runtime_error("The str name size is overflow!");
             }
             void setInteger(int i)
             {
@@ -312,5 +312,5 @@ namespace MINISQL_BASE {
             blockID(bid), offset(offset)
        {
        };
-   }
+   };
 }
