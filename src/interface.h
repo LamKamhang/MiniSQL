@@ -1,14 +1,18 @@
 /*
  * File: interface.h
- * Version: 1.0
+ * Version: 1.1
  * Author: kk
  * Modified Date: Fri Jun  1 16:48:36 DST 2018
+ * Modified Date: Mon Jun 11 22:37:24 DST 2018
  * -------------------------------------------
  * miniSQL 统一接口头文件
  * 重新定义了一些基础的类：
  *  - 值
  *  - 类型
  *  - 条件
+ * 
+ * v1.1 规范化头文件，避免重定义
+ *      增加元组逻辑指针
  */
 
 #pragma once
@@ -23,8 +27,10 @@
 namespace MINISQL_BASE {
     // 块的大小以及最大块的数量
     // 阿洪你根据需要修改就好啦
-    const int BlockSize = 4096;
-    const int MaxBlocks = 128;
+    // 在bufferManager中定义
+    // 定义的时候在namespae中定义
+    extern const int BlockSize;
+    extern const int MaxBlocks;
 
     // 属性的类型/值的类型
     enum AttributeType {
@@ -56,7 +62,7 @@ namespace MINISQL_BASE {
     class Attribute {
         private:
             std::string name;
-            size_t  charSize;   // this is the variable n of char(n)
+            unsigned int  charSize;   // this is the variable n of char(n)
             AttributeType type;
             bool primary;
             bool unique;
@@ -66,7 +72,7 @@ namespace MINISQL_BASE {
                 primary(false), unique(false), type(None)
             {
             };
-            Attribute(std::string name, AttributeType type, size_t n = 0, bool primary = false, bool unique = false):
+            Attribute(std::string name, AttributeType type, unsigned int n = 0, bool primary = false, bool unique = false):
                 name(name), type(type), charSize(n), primary(primary), unique(unique)
             {
                 if (primary)
@@ -75,13 +81,15 @@ namespace MINISQL_BASE {
             ~Attribute(){};
 
             // set some inner info.
-            void setType(const AttributeType &type) {this->type = type;}
+            void setType(const AttributeType &type, const unsigned int charSize = 0) 
+                {this->type = type; this->charSize = charSize;}
             void setName(const std::string &name)   {this->name = name;}
             void setPrimary(const bool &primary)    {if (this->primary = primary) unique = true;}
             void setUnique(const bool &unique)      {this->unique = unique;}
 
             // some methods to get inner info.
             AttributeType getType()     {return type;}
+            unsigned int  getSize()     {return charSize;}
             const std::string& getName(){return name;}
             bool isPrimary()            {return primary;}
             bool isUnique()             {return unique;}
@@ -100,15 +108,17 @@ namespace MINISQL_BASE {
             int i;
             float f;
             SqlValueType type;
-            size_t charSize;
+            unsigned int charSize;
 
         public:
             // constructors and destructors
             SqlValue()                :           type(None)    {};
             SqlValue(int i)           : i(i),     type(Integer) {};
             SqlValue(float f)         : f(f),     type(Float)   {};
-            SqlValue(std::string &str): str(str), type(String), charSize(str.size())    {};
-            SqlValue(const char *str) : str(str), type(String), charSize(strlen(str)) {};
+            SqlValue(std::string &str, unsigned int charSize): str(str), type(String), charSize(charSize) 
+                {if(str.size() > charSize)  throw std::runtime_error("The str name size is overflow!")};
+            SqlValue(const char *str,  unsigned int charSize) : str(str), type(String), charSize(charSize) 
+                {if(strlen(str) > charSize) throw std::runtime_error("The str name size is overflow!")};
             ~SqlValue(){};
 
             // get sqlvalue info.
@@ -139,17 +149,21 @@ namespace MINISQL_BASE {
             }
 
             // set sqlValue info.
-            void setStr(std::string &str)
+            void setStr(std::string &str, unsigned int charSize)
             {
                 this->str = str;
                 type = String;
-                charSize = str.size();
+                this->charSize = charSize;
+                if (str.size() > charSize)
+                    throw std::runtime_error("The str name size is overflow!")
             }
-            void setStr(const char *str)
+            void setStr(const char *str, unsigned int charSize)
             {
                 this->str = std::string(str);
                 type = String;
-                charSize = strlen(str);
+                this->charSize = charSize;
+                if (str.size() > charSize)
+                    throw std::runtime_error("The str name size is overflow!")
             }
             void setInteger(int i)
             {
@@ -168,6 +182,7 @@ namespace MINISQL_BASE {
                 str.clear();
                 i = 0;
                 f = 0;
+                charSize = 0;
                 type = None;
             }
             std::string toStr() const
@@ -178,7 +193,7 @@ namespace MINISQL_BASE {
                     case String:    ss << str;  break;
                     case Integer:   ss << i;    break;
                     case Float:     ss << f;    break;
-                    default:throw std::runtime_error("Undefined Type!");break;
+                    default: throw std::runtime_error("Undefined Type!");break;
                 }
                 return ss.str();
             }
@@ -280,4 +295,22 @@ namespace MINISQL_BASE {
                 }
             }
     };
+
+    /*
+    * structure: TuplePtr
+    * Usage: 作为一条元组的定位信息
+    * --------------------
+    * 元组的逻辑指针，
+    * 通过该结构能够定位到元组在哪个block
+    * 以及在这个block中的偏移量是多少
+    */
+   struct TuplePtr{
+       unsigned int blockID;
+       unsigned int offset;
+       TuplePtr() = default;
+       TuplePtr(unsigned int bid, unsigned offset):
+            blockID(bid), offset(offset)
+       {
+       };
+   }
 }
