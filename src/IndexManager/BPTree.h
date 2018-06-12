@@ -1,8 +1,9 @@
 /*
  * File: BPTree.h
- * Version: 1.0
+ * Version: 1.1
  * Author: kk
  * Created Date: Sat Jun  2 20:04:21 DST 2018
+ * Modified Date: Mon Jun 11 22:37:24 DST 2018
  * -------------------------------------------
  * miniSQL的IndexManager需要用到的数据结构B+树定义
  * 实现B+树的基本操作，插入，删除，合并，分裂
@@ -14,6 +15,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include "../interface.h"
 
 
 /*
@@ -29,7 +31,7 @@
  * 搜索，增加，移除，是否为根节点，是否为叶结点，分裂
  * bool search(const T &key, int &index) const
  *      返回的下标在index变量里，返回值表示是否找到
- *      下标是第一个比input_key大的key下标，从0开始
+ *      相同键值的key，从0开始
  */
 template<typename T>
 class BPTreeNode {
@@ -59,9 +61,12 @@ public:
 
     int getCount() const { return cnt; }
     
-    std::vector<BPTreeNode<T> *> children;
     std::vector<T> keys;    
-    std::vector<int> keyOffset;
+    union PointerUnion
+    {
+        std::vector<BPTreeNode<T> *> children;
+        std::vector<TuplePtr> keyOffset;
+    } pointers;
     BPTreeNode *parent, *sibling;
 
 #   ifdef DEBUG
@@ -89,9 +94,11 @@ BPTreeNode<T>::BPTreeNode(int degree, bool isLeaf) :
     degree(degree), leaf(isLeaf), cnt(0), parent(nullptr), sibling(nullptr) 
 {
     // add one more space for split
-    children.resize(degree + 1);
     keys.resize(degree);
-    keyOffset.resize(degree);
+    if (isLeaf)
+        pointers.keyOffset.resize(degree);
+    else
+        pointers.children.resize(degree + 1);
 }
 
 template<typename T>
@@ -113,17 +120,23 @@ bool BPTreeNode<T>::search(const T &key, int &index) const {
 
 template<typename T>
 bool BPTreeNode<T>::binarySearch(const T &key, int &index) const {
-    int left = 0, right = cnt - 1, pos;
+    int left = 0, right = cnt - 1;
     while (left <= right) {
-        pos = (right + left) / 2;
-        if (keys[pos] < key) {
-            left = pos + 1;
-        } else {
-            right = pos - 1;
+        index = (right + left) / 2;
+        if (keys[index] < key) 
+        {
+            left = index + 1;
+        }
+        else if (keys[index] > key)
+        {
+            right = index;
+        }
+        else
+        {
+            return true;
         }
     }
-    index = left;
-    return keys[index] == key;
+    return false;
 }
 
 template<typename T>
@@ -138,30 +151,29 @@ BPTreeNode<T> *BPTreeNode<T>::split(T &key) {
      * which is the same with degree / 2
      */
     int minimal = degree / 2;
+    key = keys[minimal];    // 上浮的key
 
-    if (leaf) {
-        key = keys[minimal + 1];
-        for (int i = minimal + 1; i < degree; i++) {
-            newNode->keys[i - minimal - 1] = keys[i];
-            newNode->keyOffset[i - minimal - 1] = keyOffset[i];
+    // 分裂根据是否为leaf区分，keys对半分，新结点key个数 >= 旧结点key个数
+    //|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+    // 下面还有问题，对于pointers的更新有点问题
+    if (leaf) {        
+        for (int i = minimal; i < degree; i++) {
+            newNode->keys[i - minimal] = keys[i];
+            (newNode->pointers).keyOffset[i - minimal] = pointers.keyOffset[i];
         }
         newNode->sibling = sibling;
-        sibling = newNode;
-        cnt = minimal + 1;
+        sibling = newNode;        
     } else {
-        key = keys[minimal];
-        for (int i = minimal + 1; i <= degree; i++) {
-            newNode->children[i - minimal - 1] = children[i];
-            children[i]->parent = newNode;
-            children[i] = nullptr;
+        for (int i = minimal; i < degree; i++) {
+            newNode->keys[i - minimal] = keys[i];
+            (newNode->pointers).children[i - minimal] = pointers.children[i];
+            (pointers.children[i])->parent = newNode;
+            (pointers.children[i]) = nullptr;
         }
-        for (int i = minimal + 1; i < degree; i++) {
-            newNode->keys[i - minimal - 1] = keys[i];
-        }
-        cnt = minimal;
     }
+    cnt = minimal;
     newNode->parent = parent;
-    newNode->cnt = degree - minimal - 1;
+    newNode->cnt = degree - minimal;
     return newNode;
 }
 
