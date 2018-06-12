@@ -1,5 +1,5 @@
 /*
- * File: BPTree.h
+ * File: BPTree.hpp
  * Version: 1.1
  * Author: kk
  * Created Date: Sat Jun  2 20:04:21 DST 2018
@@ -244,6 +244,7 @@ void BPTreeNode<T>::removeAt(int index) {
     }
     else
     {
+        // 对于inner node而言，在删除合并结点的时候，key的右指针是已经没用了
         for (int i = index; i < cnt - 1; ++i)
         {
             keys[i] = keys[i + 1];
@@ -311,6 +312,7 @@ private:
 
     bool deleteLeafRR(TreeNode node, TreeNode parent, TreeNode sibling, int index);
 
+#   ifdef DEBUG
     void debug(TreeNode node, int id) {
         node->debug(id);
         if (!node->isLeaf()) {
@@ -319,6 +321,7 @@ private:
             }
         }
     }
+#   endif
 };
 
 template<typename T>
@@ -371,7 +374,7 @@ template<typename T>
 int BPTree<T>::find(const T &key) {
     NodeSearchParse<T> res;
     if (!root) { return -1; }
-    if (findKeyFromNode(root, key, res)) { return res.node->keyOffset[res.index]; }
+    if (findKeyFromNode(root, key, res)) { return res.node->pointers.keyOffset[res.index]; }
     else { return -1; }
 }
 
@@ -642,10 +645,10 @@ template<typename T>
 bool BPTree<T>::deleteLeafLL(BPTree::TreeNode node, BPTree::TreeNode parent, BPTree::TreeNode sibling, int index) {
     for (int i = node->cnt; i > 0; i--) {
         node->keys[i] = node->keys[i - 1];
-        node->keyOffset[i] = node->keyOffset[i - 1];
+        node->pointers.keyOffset[i] = node->pointers.keyOffset[i - 1];
     }
     node->keys[0] = sibling->keys[sibling->cnt - 1];
-    node->keyOffset[0] = sibling->keyOffset[sibling->cnt - 1];
+    node->pointers.keyOffset[0] = sibling->pointers.keyOffset[sibling->cnt - 1];
     sibling->removeAt(sibling->cnt - 1);
 
     node->cnt++;
@@ -659,7 +662,7 @@ bool BPTree<T>::deleteLeafLR(BPTree::TreeNode node, BPTree::TreeNode parent, BPT
     parent->removeAt(index);
     for (int i = 0; i < node->cnt; i++) {
         sibling->keys[i + sibling->cnt] = node->keys[i];
-        sibling->keyOffset[i + sibling->cnt] = node->keyOffset[i];
+        sibling->pointers.keyOffset[i + sibling->cnt] = node->pointers.keyOffset[i];
     }
     sibling->cnt += node->cnt;
     sibling->sibling = node->sibling;
@@ -673,7 +676,7 @@ bool BPTree<T>::deleteLeafLR(BPTree::TreeNode node, BPTree::TreeNode parent, BPT
 template<typename T>
 bool BPTree<T>::deleteLeafRL(BPTree::TreeNode node, BPTree::TreeNode parent, BPTree::TreeNode sibling, int index) {
     node->keys[node->cnt] = sibling->keys[0];
-    node->keyOffset[node->cnt] = sibling->keyOffset[0];
+    node->pointers.keyOffset[node->cnt] = sibling->pointers.keyOffset[0];
     node->cnt++;
     sibling->removeAt(0);
     if (parent->pointers.children[0] == node) {
@@ -688,7 +691,7 @@ template<typename T>
 bool BPTree<T>::deleteLeafRR(BPTree::TreeNode node, BPTree::TreeNode parent, BPTree::TreeNode sibling, int index) {
     for (int i = 0; i < sibling->cnt; i++) {
         node->keys[node->cnt + i] = sibling->keys[i];
-        node->keyOffset[node->cnt + i] = sibling->keyOffset[i];
+        node->pointers.keyOffset[node->cnt + i] = sibling->pointers.keyOffset[i];
     }
     if (node == parent->pointers.children[0]) {
         parent->removeAt(0); // if leftest, merge with first sibling
