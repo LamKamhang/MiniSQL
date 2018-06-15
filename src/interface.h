@@ -31,6 +31,7 @@ namespace MINISQL_BASE {
     // 定义的时候在namespae中定义
     extern const int BlockSize;
     extern const int MaxBlocks;
+#define NONE    (TuplePtr(-1, -1))
 
     // 属性的类型/值的类型
     enum AttributeType {
@@ -312,5 +313,13 @@ namespace MINISQL_BASE {
             blockID(bid), offset(offset)
        {
        };
+       bool operator ==(const TuplePtr &rhs)
+       {
+           return blockID == rhs.blockID && offset == rhs.offset;
+       }
+       bool operator !()
+       {
+           return (*this == NONE);
+       }
    };
 }
