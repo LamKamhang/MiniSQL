@@ -1,15 +1,17 @@
 /*
  * File: BPTree.hpp
- * Version: 1.2
+ * Version: 1.3
  * Author: kk
  * Created Date: Sat Jun  2 20:04:21 DST 2018
  * Modified Date: Mon Jun 11 22:37:24 DST 2018
  * Modified Date: Fri Jun 15 21:10:18 DST 2018
+ * Modified Date: Sat Jun 16 01:07:47 DST 2018
  * -------------------------------------------
  * miniSQL的IndexManager需要用到的数据结构B+树定义
  * 实现B+树的基本操作，插入，删除，合并，分裂
  * 为了通用性，使用模板编程方式。
  * version 1.2 去除Union声明，联合中不能使用类，需要保持对内存相同的操作
+ * version 1.3 修正inner node的split方式，上浮的key不保存在inner node中
  */
 
 #pragma once
@@ -18,7 +20,7 @@
 #include <vector>
 #include <queue>
 #include <string>
-#include "../interface.h"
+#include "interface.h"
 
 using namespace MINISQL_BASE;
 
@@ -165,22 +167,24 @@ BPTreeNode<T> *BPTreeNode<T>::split(T &key) {
         // keep the sibling link in the last pointer
         newNode->sibling = sibling;
         sibling = newNode;
+		newNode->cnt = degree - minimal;
     } else {
-        for (int i = minimal; i < degree; i++) {
-            newNode->keys[i - minimal] = keys[i];
-            newNode->children[i - minimal] = children[i];
+        for (int i = minimal+1; i < degree; i++) {
+            newNode->keys[i - minimal - 1] = keys[i];
+            newNode->children[i - minimal - 1] = children[i];
             children[i]->parent = newNode;
             children[i] = nullptr;
         }
         // inner node have one more pointer than keys.
-        newNode->children[degree - minimal] = children[degree];
+        newNode->children[degree - minimal - 1] = children[degree];
         children[degree]->parent = newNode;
         children[degree] = nullptr;
+		newNode->cnt = degree - minimal - 1;
     }
     // the old node still has minimal keys,
     // while the new node has degree - minimal keys
     cnt = minimal;
-    newNode->cnt = degree - minimal;
+    
 
     // the new node has the same parent with old node
     // we should also give its child identification to its parent.
@@ -297,10 +301,17 @@ public:
             nodes.pop();
             if (node)
             {
-                levelSize = node->children.size();
-                for (int i = 0; i < levelSize; ++i)
-                    nodes.push(node->children[i]);
-                node->showKeys(i++);
+				if (node->isLeaf())
+				{
+					node->showKeys(i++);
+				}
+				else
+				{
+					levelSize = node->getCount() + 1;
+					for (int i = 0; i < levelSize; ++i)
+						nodes.push(node->children[i]);
+					node->showKeys(i++);
+				}
             }
         }
     }
