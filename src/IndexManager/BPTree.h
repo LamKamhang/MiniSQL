@@ -146,7 +146,7 @@ BPTreeNode<T> *BPTreeNode<T>::split(T &key) {
     BPTreeNode<T> *newNode = new BPTreeNode<T>(degree, leaf);
     
     /* 
-     * notice that: ceil[(degree - 1)/2] means 
+     * notice that: ceil[(degree - 1)/2] means
                                             degree  value
                                             2k+1 --> k
                                             2k   --> k
@@ -156,14 +156,14 @@ BPTreeNode<T> *BPTreeNode<T>::split(T &key) {
     key = keys[minimal];    // 上浮的key
 
     // 分裂根据是否为leaf区分，keys对半分，新结点key个数 >= 旧结点key个数
-    if (leaf) {        
+    if (leaf) {
         for (int i = minimal; i < degree; i++) {
             newNode->keys[i - minimal] = keys[i];
             (newNode->pointers).keyOffset[i - minimal] = pointers.keyOffset[i];
         }
         // keep the sibling link in the last pointer
         newNode->sibling = sibling;
-        sibling = newNode;        
+        sibling = newNode;
     } else {
         for (int i = minimal; i < degree; i++) {
             newNode->keys[i - minimal] = keys[i];
