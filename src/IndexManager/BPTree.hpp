@@ -20,7 +20,7 @@
 #include <vector>
 #include <queue>
 #include <string>
-#include "interface.h"
+#include "../interface.h"
 
 using namespace MINISQL_BASE;
 
@@ -126,11 +126,11 @@ bool BPTreeNode<T>::search(const T &key, int &index) const {
 template<typename T>
 bool BPTreeNode<T>::binarySearch(const T &key, int &index) const {
     int left = 0, right = cnt - 1;
-    while (left <= right) {
+    while (left < right) {
         index = (right + left) / 2;
         if (keys[index] < key) 
         {
-            left = index + 1;
+            left = ++index;
         }
         else if (keys[index] > key)
         {
@@ -291,29 +291,39 @@ public:
 #   ifdef DEBUG
     void showTree() {
         std::cout << "Tree height: " << level << std::endl;
-        int i = 0;
-        int levelSize;
+        int numofnodes = 1;
         std::queue<TreeNode> nodes;
         nodes.push(root);
-        while (nodes.size())
-        {
-            TreeNode node = nodes.front();
-            nodes.pop();
-            if (node)
+        for (int i = 0; i < level; ++i)
+        {            
+            std::cout << "Level: " << i << std::endl;
+            int temp = numofnodes;
+            numofnodes = 0;
+            for (int j = 0; j < temp; ++j)
             {
-				if (node->isLeaf())
-				{
-					node->showKeys(i++);
-				}
-				else
-				{
-					levelSize = node->getCount() + 1;
-					for (int i = 0; i < levelSize; ++i)
-						nodes.push(node->children[i]);
-					node->showKeys(i++);
-				}
+                TreeNode node = nodes.front();
+                nodes.pop();
+                if (node)
+                {
+                    if (node->isLeaf())
+                    {
+                        node->showKeys(j);
+                    }
+                    else
+                    {
+                        int numofchild = node->getCount() + 1;
+                        numofnodes += numofchild;
+                        for (int k = 0; k < numofchild; ++k)
+                        {
+                            nodes.push(node->children[k]);
+                        }
+                        node->showKeys(j);
+                    }
+                }
             }
+            std::cout << "------------------------------" << std::endl;
         }
+
     }
 #   endif
 
