@@ -1,6 +1,6 @@
 /*
  * File: BPTree.hpp
- * Version: 1.3
+ * Version: 1.4
  * Author: kk
  * Created Date: Sat Jun  2 20:04:21 DST 2018
  * Modified Date: Mon Jun 11 22:37:24 DST 2018
@@ -12,6 +12,8 @@
  * 为了通用性，使用模板编程方式。
  * version 1.2 去除Union声明，联合中不能使用类，需要保持对内存相同的操作
  * version 1.3 修正inner node的split方式，上浮的key不保存在inner node中
+ * version 1.4 修正delete的错误以及二分搜索的性能问题, 
+ *             增加B+树从文件中读入以及写入文件的功能，成为文件B+树
  */
 
 #pragma once
