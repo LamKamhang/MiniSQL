@@ -73,6 +73,7 @@ public:
     std::vector<BPTreeNode<T> *> children;
     std::vector<TuplePtr> keyOffset;
     BPTreeNode *parent, *sibling;
+    int cnt;
 
 #   ifdef DEBUG
     void showKeys(int id) {
@@ -89,7 +90,7 @@ private:
      * degree为扇出数
      * cnt为该结点的key值数量
      */
-    int degree, cnt;
+    int degree;
     bool leaf;
     bool binarySearch(const T &key, int &index) const;
 };
@@ -311,7 +312,7 @@ public:
                     }
                     else
                     {
-                        int numofchild = node->getCount() + 1;
+                        int numofchild = node->cnt + 1;
                         numofnodes += numofchild;
                         for (int k = 0; k < numofchild; ++k)
                         {
@@ -430,7 +431,7 @@ bool BPTree<T>::insert(const T &key, TuplePtr offset) {
     }
     res.node->add(key, offset);
     // 溢出了
-    if (res.node->getCount() == degree) {
+    if (res.node->cnt == degree) {
         cascadeInsert(res.node);
     }
     keyCount++;
@@ -459,7 +460,7 @@ void BPTree<T>::cascadeInsert(BPTree::TreeNode node) {
 
         parent->children[index + 1] = sibling;
         sibling->parent = parent;
-        if (parent->getCount() == degree) {
+        if (parent->cnt == degree) {
             cascadeInsert(parent);
         }
     }
@@ -536,9 +537,9 @@ bool BPTree<T>::cascadeDelete(BPTree::TreeNode node) {
     if (node->isLeaf()) {
         // merge if it is leaf node
         currentParent->search(node->keys[0], index);
-        if ((currentParent).children[0] != node && currentParent->cnt == index + 1) {
+        if (currentParent->children[0] != node && currentParent->cnt == index + 1) {
             // rightest, also not first, merge with left sibling
-            sibling = (currentParent).children[index];
+            sibling = currentParent->children[index];
             if (sibling->cnt > minimal) {
                 // transfer rightest of left to the leftest to meet the requirement
                 return deleteLeafLL(node, currentParent, sibling, index);
@@ -548,12 +549,12 @@ bool BPTree<T>::cascadeDelete(BPTree::TreeNode node) {
             }
         } else {
             // can merge with right brother
-            if ((currentParent).children[0] == node) {
+            if (currentParent->children[0] == node) {
                 // on the leftest
-                sibling = (currentParent).children[1];
+                sibling = currentParent->children[1];
             } else {
                 // normally
-                sibling = (currentParent).children[index + 2];
+                sibling = currentParent->children[index + 2];
             }
             if (sibling->cnt > minimal) {
                 // add the leftest of sibling to the right
@@ -566,9 +567,9 @@ bool BPTree<T>::cascadeDelete(BPTree::TreeNode node) {
     } else {
         // merge if it is branch node
         currentParent->search(node->children[0]->keys[0], index);
-        if ((currentParent).children[0] != node && currentParent->cnt == index + 1) {
+        if (currentParent->children[0] != node && currentParent->cnt == index + 1) {
             // can only be updated with left sibling
-            sibling = (currentParent).children[index];
+            sibling = currentParent->children[index];
             if (sibling->cnt > minimalBranch) {
                 // add rightest key to the first node to avoid cascade operation
                 return deleteBranchLL(node, currentParent, sibling, index);
@@ -578,10 +579,10 @@ bool BPTree<T>::cascadeDelete(BPTree::TreeNode node) {
             }
         } else {
             // update with right sibling
-            if ((currentParent).children[0] == node) {
-                sibling = (currentParent).children[1];
+            if (currentParent->children[0] == node) {
+                sibling = currentParent->children[1];
             } else {
-                sibling = (currentParent).children[index + 2];
+                sibling = currentParent->children[index + 2];
             }
 
             if (sibling->cnt > minimalBranch) {
