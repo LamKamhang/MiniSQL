@@ -1,4 +1,7 @@
 #pragma once
+#ifndef INTERPRETER_H_ 
+
+#define INTERPRETER_H_
 #include"CatalogManage.h"
 #include<string.h>
 #include<string>
@@ -73,7 +76,7 @@ public:
 class miniCreateTable
 {
 public:
-	miniCreateTable(){}
+	miniCreateTable() {}
 	~miniCreateTable() {}
 	string tableName;
 	int attributeNum;
@@ -119,9 +122,9 @@ public:
 };
 
 class miniStatement
-{ 
+{
 public:
-	miniStatement(){}
+	miniStatement() {}
 	~miniStatement() {}
 	int flag;
 	miniSelect MiniSelect;
@@ -135,7 +138,11 @@ public:
 	miniCreateDatabase MiniCreateDatabase;
 	miniDropDatabase MiniDropDatabase;
 	miniUseDatabase MiniUseDatabase;
-	
+
 };
 
 miniStatement miniInterpreter(char* in);
+
+int  splitString(const string & strSrc, const std::string& strDelims, vector<string>& strDest);
+
+#endif
