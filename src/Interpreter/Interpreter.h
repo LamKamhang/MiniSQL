@@ -1,46 +1,3 @@
-#pragma once
-#ifndef INTERPRETER_H_ 
-
-#define INTERPRETER_H_
-#include"CatalogManage.h"
-#include<string.h>
-#include<string>
-using namespace std;
-
-enum Mini
-{
-	ERROR,
-	SELECT,
-	DELETE,
-	INSERT,
-	EXEFILE,
-	CREATETABLE,
-	CREATEINDEX,
-	DROPTABLE,
-	DROPINDEX,
-	CREATEDATABASE,
-	DROPDATABASE,
-	USEDATABASE,
-	QUIT
-};
-
-class Interpreter
-{
-public:
-	void init();
-};
-
-class condition
-{
-public:
-	string attributeName;
-	int type;
-	string oprt;
-	int intValue;
-	float floatValue;
-	string stringValues;
-};
-
 class miniSelect
 {
 public:
@@ -71,24 +28,6 @@ class miniFile
 {
 public:
 	string fileName;
-};
-
-class miniCreateTable
-{
-public:
-	miniCreateTable() {}
-	~miniCreateTable() {}
-	string tableName;
-	int attributeNum;
-	attribute attributes[32];
-};
-
-class miniCreateIndex
-{
-public:
-	string indexName;
-	string tableName;
-	string attributeName;
 };
 
 class miniDropTable
@@ -140,9 +79,4 @@ public:
 	miniUseDatabase MiniUseDatabase;
 
 };
-
 miniStatement miniInterpreter(char* in);
-
-int  splitString(const string & strSrc, const std::string& strDelims, vector<string>& strDest);
-
-#endif

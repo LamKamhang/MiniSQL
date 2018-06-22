@@ -1,43 +1,20 @@
-#include "Interpreter.h"
 #include<iostream>
 #include<stdlib.h>
 #include<vector>
 using namespace std;
-
-
-int  splitString(const string & strSrc, const std::string& strDelims, vector<string>& strDest)
-{
-	typedef std::string::size_type ST;
-	string delims = strDelims;
-	std::string STR;
-	if (delims.empty()) delims = "/n/r";
-
-
-	ST pos = 0, LEN = strSrc.size();
-	while (pos < LEN) {
-		STR = "";
-		while ((delims.find(strSrc[pos]) != std::string::npos) && (pos < LEN)) ++pos;
-		if (pos == LEN) return strDest.size();
-		while ((delims.find(strSrc[pos]) == std::string::npos) && (pos < LEN)) STR += strSrc[pos++];
-		//std::cout << "[" << STR << "]";  
-		if (!STR.empty()) strDest.push_back(STR);
-	}
-	return strDest.size();
-}
-
-void Interpreter::init()
+/*void Interpreter::init()
 {
 	cout << "Welcome to MiniSQL!" << endl;
 	cout << "MiniSQL->";
 	fflush(stdin);
-}
+}*/
 
 miniStatement miniInterpreter(char* in)
 {
 	miniStatement SQL;
 	vector<string> split;
 	int i = 0;
-	CatalogManage cm;
+	CatalogManager cm;
 	string d = " (),	\n";
 	splitString(in, d, split);
 	if (split[0] == "select")
@@ -46,6 +23,7 @@ miniStatement miniInterpreter(char* in)
 		if (i != split[split.size() - 1].length() - 1)
 		{
 			SQL.flag = ERROR;
+			cout<<"Error! Check your input, please!"<<endl;
 			return SQL;
 		}
 		else
@@ -77,22 +55,23 @@ miniStatement miniInterpreter(char* in)
 								else if (strstr(split[j + 2].c_str(), "."))
 								{
 									SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].type = FLOAT;
-									SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].stringValues = split[j + 2];
+									SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].floatValue = atof(split[j + 2].c_str());
 									SQL.MiniSelect.conditionNum++;
 								}
 								else
 								{
 									SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].type = INT;
-									SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].stringValues = split[j + 2];
+									SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].intValue = atoi(split[j + 2].c_str());
 									SQL.MiniSelect.conditionNum++;
 								}
 							}
 							return SQL;
+							cout<<"print select results"<<endl;
 						}
 						else
 						{
 							SQL.flag = ERROR;
-							cout << "error" << endl;
+							cout<<"Error! Check your input, please!"<<endl;
 							return SQL;
 						}
 					}
@@ -105,17 +84,20 @@ miniStatement miniInterpreter(char* in)
 								SQL.flag = SELECT;
 								SQL.MiniSelect.tableName = split[3];
 								SQL.MiniSelect.conditionNum = 0;
+								cout<<"Success!"<<endl;
 								return SQL;
 							}
 							else
 							{
 								SQL.flag = ERROR;
+								cout<<"Error! Check your input, please!"<<endl;
 								return SQL;
 							}
 						}
 						else
 						{
 							SQL.flag = ERROR;
+							cout<<"Error! Check your input, please!"<<endl;
 							return SQL;
 						}
 					}
@@ -123,6 +105,7 @@ miniStatement miniInterpreter(char* in)
 				else
 				{
 					SQL.flag = ERROR;
+					cout<<"Error! Check your input, please!"<<endl;
 					return SQL;
 				}
 			}
@@ -138,6 +121,7 @@ miniStatement miniInterpreter(char* in)
 				if (posFrom == -1 || posFrom == 1)
 				{
 					SQL.flag = ERROR;
+					cout<<"Error! Check your input, please!"<<endl;
 					return SQL;
 				}
 				if (cm.isTable(split[posFrom + 1]))
@@ -159,13 +143,13 @@ miniStatement miniInterpreter(char* in)
 						else if (strstr(split[j + 2].c_str(), "."))
 						{
 							SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].type = FLOAT;
-							SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].stringValues = split[j + 2];
+							SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].floatValue = atof(split[j + 2].c_str());
 							SQL.MiniSelect.conditionNum++;
 						}
 						else
 						{
 							SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].type = INT;
-							SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].stringValues = split[j + 2];
+							SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].intValue = atoi(split[j + 2].c_str());
 							SQL.MiniSelect.conditionNum++;
 						}
 					}
@@ -173,6 +157,7 @@ miniStatement miniInterpreter(char* in)
 				else
 				{
 					SQL.flag = ERROR;
+					cout<<"Error! Check your input, please!"<<endl;
 					return SQL;
 				}
 				SQL.MiniSelect.attributeNum = 0;
@@ -188,6 +173,7 @@ miniStatement miniInterpreter(char* in)
 					else
 					{
 						SQL.flag = ERROR;
+						cout<<"Error! Check your input, please!"<<endl;
 						return SQL;
 					}
 				}
@@ -205,7 +191,8 @@ miniStatement miniInterpreter(char* in)
 				int i = split[split.size()-1].find(";");
 				if (i != split[split.size() - 1].length()-1)
 				{
-					SQL.flag = ERROR;					
+					SQL.flag = ERROR;
+					cout<<"Error! Check your input, please!"<<endl;					
 					return SQL;
 				}
 				else
@@ -218,6 +205,7 @@ miniStatement miniInterpreter(char* in)
 						{
 							SQL.MiniDelete.tableName = split[3];
 							SQL.MiniDelete.conditionNum = 0;
+							cout<<"Success!"<<endl;
 							return SQL;
 						}
 						else
@@ -249,6 +237,7 @@ miniStatement miniInterpreter(char* in)
 									SQL.MiniDelete.conditionNum++;
 								}
 							}
+							cout<<"Success!"<<endl;
 							return SQL;
 						}
 						
@@ -256,7 +245,7 @@ miniStatement miniInterpreter(char* in)
 					else
 					{
 						SQL.flag = ERROR;
-						cout << "error" << endl;
+						cout<<"Error! Check your input, please!"<<endl;
 						return SQL;
 					}
 				}
@@ -264,12 +253,15 @@ miniStatement miniInterpreter(char* in)
 			}
 			else
 			{
-					
+					SQL.flag = ERROR;
+					cout<<"Error! Check your input, please!"<<endl;					
+					return SQL;
 			}
 		}
 		else
 		{
 			SQL.flag = ERROR;
+			cout<<"Error! Check your input, please!"<<endl;
 			return SQL;
 		}
 	}
@@ -285,6 +277,7 @@ miniStatement miniInterpreter(char* in)
 					if (split[split.size() - 1] != ";")
 					{
 						SQL.flag = ERROR;
+						cout<<"Error! Check your input, please!"<<endl;
 						return SQL;
 					}
 					else
@@ -305,34 +298,38 @@ miniStatement miniInterpreter(char* in)
 							else if (strstr(split[j].c_str(), "."))
 							{
 								SQL.MiniInsert.cond[SQL.MiniInsert.insertNum].type = FLOAT;
-								SQL.MiniInsert.cond[SQL.MiniInsert.insertNum].stringValues = split[j];
+								SQL.MiniInsert.cond[SQL.MiniInsert.insertNum].floatValue = atof(split[j].c_str());
 								SQL.MiniInsert.insertNum++;
 							}
 							else
 							{
 								SQL.MiniInsert.cond[SQL.MiniInsert.insertNum].type = INT;
-								SQL.MiniInsert.cond[SQL.MiniInsert.insertNum].stringValues = split[j];
+								SQL.MiniInsert.cond[SQL.MiniInsert.insertNum].intValue = atoi(split[j].c_str());
 								SQL.MiniInsert.insertNum++;
 							}
 						}
+						cout<<"Success!"<<endl;
 						return SQL;
 					}				
 				}
 				else
 				{
 					SQL.flag = ERROR;
+					cout<<"Error! Check your input, please!"<<endl;
 					return SQL;
 				}
 			}
 			else
 			{
 				SQL.flag = ERROR;
+				cout<<"Error! Check your input, please!"<<endl;
 				return SQL;
 			}
 		}
 		else
 		{
 			SQL.flag = ERROR;
+			cout<<"Error! Check your input, please!"<<endl;
 			return SQL;
 		}
 	}
@@ -343,6 +340,7 @@ miniStatement miniInterpreter(char* in)
 		if (i != split[1].length() - 1)
 		{
 			SQL.flag = ERROR;
+			cout<<"Error! Check your input, please!"<<endl;
 			return SQL;
 		}
 		else
@@ -350,6 +348,7 @@ miniStatement miniInterpreter(char* in)
 			SQL.flag = EXEFILE;
 			split[1] = split[1].erase(split[1].length() - 1, 1);
 			SQL.MiniFile.fileName = split[1];
+			cout<<"Success!"<<endl;
 			return SQL;
 		}
 	}
@@ -361,6 +360,7 @@ miniStatement miniInterpreter(char* in)
 			if (split[split.size() - 1] != ";")	//判断有没有分号结尾
 			{
 				SQL.flag = ERROR;
+				cout<<"Error! Check your input, please!"<<endl;
 				return SQL;
 			}
 			else
@@ -368,6 +368,7 @@ miniStatement miniInterpreter(char* in)
 				if (cm.isTable(split[2]))	  //检查表名是否已经存在
 				{
 					SQL.flag = ERROR;
+					cout<<"Error! Check your input, please!"<<endl;
 					return SQL;
 				}
 				else
@@ -434,6 +435,7 @@ miniStatement miniInterpreter(char* in)
 							else
 							{
 								SQL.flag = ERROR;
+								cout<<"Error! Check your input, please!"<<endl;
 								return SQL;
 							}
 						}											
@@ -453,6 +455,7 @@ miniStatement miniInterpreter(char* in)
 								if (m > j)
 								{
 									SQL.flag = ERROR;
+									cout<<"Error! Check your input, please!"<<endl;
 									return SQL;
 								}
 								k = k + 3;
@@ -460,10 +463,12 @@ miniStatement miniInterpreter(char* in)
 							else
 							{
 								SQL.flag = ERROR;
+								cout<<"Error! Check your input, please!"<<endl;
 								return SQL;
 							}
 						}
 					}
+					cout<<"Success!"<<endl;
 					return SQL;
 				}
 			}			
@@ -473,6 +478,7 @@ miniStatement miniInterpreter(char* in)
 			if (split[6]!=";")
 			{
 				SQL.flag = ERROR;
+				cout<<"Error! Check your input, please!"<<endl;
 				return SQL;
 			}
 			else
@@ -487,17 +493,20 @@ miniStatement miniInterpreter(char* in)
 							SQL.MiniCreateIndex.indexName = split[2];
 							SQL.MiniCreateIndex.tableName = split[4];
 							SQL.MiniCreateIndex.attributeName = split[5];
+							cout<<"Success!"<<endl;
 							return SQL;
 						}
 						else
 						{
 							SQL.flag = ERROR;
+							cout<<"Error! Check your input, please!"<<endl;
 							return SQL;
 						}
 					}
 					else
 					{
 						SQL.flag = ERROR;
+						cout<<"Error! Check your input, please!"<<endl;
 						return SQL;
 					}
 
@@ -505,6 +514,7 @@ miniStatement miniInterpreter(char* in)
 				else
 				{
 					SQL.flag = ERROR;
+					cout<<"Error! Check your input, please!"<<endl;
 					return SQL;
 				}
 			}
@@ -516,6 +526,7 @@ miniStatement miniInterpreter(char* in)
 			if (i != split[2].length() - 1)
 			{
 				SQL.flag = ERROR;
+				cout<<"Error! Check your input, please!"<<endl;
 				return SQL;
 			}
 			else
@@ -523,6 +534,7 @@ miniStatement miniInterpreter(char* in)
 				SQL.flag = CREATEDATABASE;
 				split[2] = split[2].erase(split[2].length() - 1, 1);
 				SQL.MiniCreateDatabase.databaseName = split[2];
+				cout<<"Success!"<<endl;
 				return SQL;
 			}
 			
@@ -530,6 +542,7 @@ miniStatement miniInterpreter(char* in)
 		else
 		{
 			SQL.flag = ERROR;
+			cout<<"Error! Check your input, please!"<<endl;
 			return SQL;
 		}
 	}
@@ -542,14 +555,26 @@ miniStatement miniInterpreter(char* in)
 			if (i != split[2].length() - 1)
 			{
 				SQL.flag = ERROR;
+				cout<<"Error! Check your input, please!"<<endl;
 				return SQL;
 			}
 			else
-			{
-				SQL.flag = DROPTABLE;
+			{				
 				split[2] = split[2].erase(split[2].length() - 1, 1);
-				SQL.MiniDropTable.tableName = split[2];
-				return SQL;
+				if(!cm.isTable(split[2]))
+				{
+					SQL.flag = ERROR;
+					cout<<"Error! Check your input, please!"<<endl;
+					return SQL;
+				}
+				else
+				{
+					SQL.flag = DROPTABLE;
+					SQL.MiniDropTable.tableName = split[2];
+					cout<<"Success!"<<endl;
+					return SQL;
+				}
+				
 			}
 			
 		}
@@ -559,14 +584,24 @@ miniStatement miniInterpreter(char* in)
 			if (i != split[2].length() - 1)
 			{
 				SQL.flag = ERROR;
+				cout<<"Error! Check your input, please!"<<endl;
 				return SQL;
 			}
 			else
 			{
 				split[2] = split[2].erase(split[2].length() - 1, 1);
-				SQL.flag = DROPINDEX;
-				SQL.MiniDropIndex.indexName = split[2];
-				return SQL;
+				if(cm.isIndex(split[2]))
+				{
+					SQL.flag = DROPINDEX;
+					SQL.MiniDropIndex.indexName = split[2];
+					return SQL;
+				}
+				else
+				{
+					SQL.flag = ERROR;
+					cout<<"Error! Check your input, please!"<<endl;
+					return SQL;
+				}
 			}
 			
 		}
@@ -576,6 +611,7 @@ miniStatement miniInterpreter(char* in)
 			if (i != split[2].length() - 1)
 			{
 				SQL.flag = ERROR;
+				cout<<"Error! Check your input, please!"<<endl;
 				return SQL;
 			}
 			else
@@ -590,6 +626,7 @@ miniStatement miniInterpreter(char* in)
 		else
 		{
 			SQL.flag = ERROR;
+			cout<<"Error! Check your input, please!"<<endl;
 			return SQL;
 		}
 	}
@@ -597,6 +634,7 @@ miniStatement miniInterpreter(char* in)
 	else if (split[0] == "quit;")
 	{
 		SQL.flag = QUIT;
+		cout<<"Bye"<<endl;
 		return SQL;
 	}
 
@@ -606,6 +644,7 @@ miniStatement miniInterpreter(char* in)
 		if (i != split[1].length() - 1)
 		{
 			SQL.flag = ERROR;
+			cout<<"Error! Check your input, please!"<<endl;
 			return SQL;
 		}
 		else
@@ -613,6 +652,7 @@ miniStatement miniInterpreter(char* in)
 			SQL.flag = USEDATABASE;
 			split[1] = split[1].erase(split[1].length() - 1, 1);
 			SQL.MiniUseDatabase.databaseName = split[1];
+			cout<<"Success!"<<endl;
 			return SQL;
 		}
 		
@@ -621,6 +661,7 @@ miniStatement miniInterpreter(char* in)
 	else
 	{
 		SQL.flag = ERROR;
+		cout<<"Error! Check your input, please!"<<endl;
 		return SQL;
 	}
 }

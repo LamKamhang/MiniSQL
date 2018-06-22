@@ -1,96 +1,114 @@
-/*Record Manager*/
-/*è®°å½•çš„å­˜å‚¨æ˜¯ä»¥é€—å·ä¸ºé—´éš”ç¬¦ï¼Œæ¢è¡Œå·ä¸ºè®°å½•çš„é—´éš”ç¬¦,æœ€åä»¥/00ä¸ºç»“å°¾*/
-class RecordManager
+/*records SelectByTuples(TuplePtr tp,miniSelect I,table t)
 {
-private:
-	RecordManager();
-	~RecordManager();
-	//modeä¸­ï¼Œéœ€è¦æœ‰è¡¨çš„åˆ›å»ºä¸åˆ é™¤ï¼Œè®°å½•çš„è¯»å–ï¼Œæ–°å¢ï¼Œåˆ é™¤
-	/*å¯¹äºAPIè€Œè¨€ï¼Œéœ€è¦ç»™ä¸€å¼ è¡¨çš„ä¿¡æ¯ï¼ˆcatelog)ä»¥åŠæ’å…¥/åˆ é™¤/é€‰æ‹©çš„ä¿¡æ¯ï¼ˆinterpreterï¼‰*/
-	bool InsertRecord(miniInsert I);
-	bool DeleteRecord(miniDelete I,table t);//ç›´æ¥æ ¹æ®æ¡ä»¶è¿›è¡Œåˆ é™¤ 
-	bool DeleteRecordByBlock(Block* b,miniDelete I,table t);//æ ¹æ®æ‰€åœ¨blockä»¥åŠæ¡ä»¶è¿›è¡Œåˆ é™¤ 
-	bool DeleteRecordByPos(Block* b,int pos,miniDelete I,table t);//æ ¹æ®blockä»¥åŠåç§»é‡posåˆ é™¤å…·ä½“æŸä¸€æ¡record 
-	records SelectRecord(miniSelect I,table t);//selectè¿”å›æ‰€æœ‰ç¬¦åˆæ¡ä»¶çš„è®°å½• 
-	records SelectRecordByBlock(Block* b,miniSelect I,table t);//è¿”å›blockå—ä¸­ç¬¦åˆæ¡ä»¶çš„è®°å½• 
-	records SelectRecordByPos(Block* b,int pos,miniSelect I,table t);//æ ¹æ®blockä»¥åŠåç§»é‡posè¿”å›å…·ä½“ä¸€æ¡è®°å½• 
+	records record(t);
+	int i=0;
+	while(1)
+	record.insert(tp.b,tp.pos);
+}*/
 
-public:
-	int getInt(Block *block, int posBegin);
-	void setInt(Block *block, int posBegin,int num);
-	float getFloat(Block *block, int posBegin);
-	void setFloat(Block *block, int posBegin,float num);
-	std::string getString(Block *block, int posBegin,int num);
-	void setString(Block *block, int posBegin, std::string str);
-	Block* GetBlock(string name);
-	Block* GetNextBlock(Block* b);
-	int FindEnd(char* data);
-	int located(string name,table t);
-	char* findAttri(char* data,int order);
-	bool cmpAttri(char* d,condition c);
-	char* FindNextRecord(char* data,int num);
-	Block* Writein(string name);//find the block that can be inserted
-	Block* Writeback(Block* b);
-	Block* Readout(string name);
-}
-
-class records
+/*
+records RecordManager::SelectForCreateIndex(miniCreateIndex I,table t)
 {
-public:
-	records(){};
-	~records(){};
-	records(table t);
-	insert(Block* b,int pos);
-	int attriNum;//å±æ€§çš„ä¸ªæ•°
-	vector<attribute> attributes;//å±æ€§ä¿¡æ¯
-	int recordNum;//è®°å½•çš„ä¸ªæ•°
-	vector<miniRecord> list;//è®°å½•çš„æ•°æ®
+	records record(t);
+	Block* b;
+	b=Readout(I.tableName);//¶ÁÈ¡±íµÄµÚÒ»¸öblock 
+	char* data; 
+	int i;
+	int tempos,pos=0;
+	int num=t.attributeNum;
+	int order[num];
+	for(i=0;i<num;i++)
+	{
+		order[i]=located(I.cond[i].attributeName,t);
+	}
+	while(b)//¼ÇÂ¼Î´±»¶Á¿Õ 
+	{
+		data=b->data;
+		while(data[pos-1]!=0)
+		{
+			record.insert(b,pos);
+			pos=FindNextRecord(block,pos);
+		}
+		b=getNextBlock(b);
+	}
+	return record;	
 }
+*/
 
-class miniRecord
-{
-public:
-	condition cond[32];//è®°å½•å†…å®¹ 
-	int conditionNum;//å±æ€§æ•°ç›® 
-	int pos;//æ‰€åœ¨å—çš„åç§» 
-	int blockNum;//æ‰€åœ¨å—çš„ç¼–å· 
-}
-
-bool RecordManager::InsertRecord(miniInsert I)
+/*TuplePtr RecordManager::SelectForIndexInserted(miniInsert I)
 {
 	Block* b;
+	TuplePtr tp;
 	b=Writein(I.tableName);
     int pos=FindEnd(b->data);
-    b->data[pos++]='\n';
+    if(pos!=0)b->data[pos++]='\n';
     int i;
+    tp.pos=pos;
+    tp.offset=b->offset;
     for(i=0;i<I.conditionNum;i++)
     {
     	switch(I.cond[i].type)
     	case 1://int 
-    		setInt(&b,pos,I.cond[i].intValue);
+    		setInt(b,pos,I.cond[i].intValue);
     		pos+=sizeof(int);
     		break;
     	case 2://float
-    		setFloat(&b,pos,I.cond[i].floatValue);
+    		setFloat(b,pos,I.cond[i].floatValue);
     		pos+=sizeof(float);
     		break;    		
     	case 3://string
-			setString(&b,pos,I.cond[i].stringValues);
+			setString(b,pos,I.cond[i].stringValues);
 			pos+=length(I.cond[i].stringValues);
 			break;
 		b->data[pos++]=',';
     }
     b->[pos-1]=0;
-    //å½“å‰é»˜è®¤æ¯å—éƒ½èƒ½å†™è¿›å»,æ™šç‚¹æ ¹æ®æƒ…å†µå†æ”¹ 
+    //µ±Ç°Ä¬ÈÏÃ¿¿é¶¼ÄÜĞ´½øÈ¥,Ííµã¸ù¾İÇé¿öÔÙ¸Ä 
     Writeback(b);
+    return tp;
+}*/
+
+bool RecordManager::InsertRecord(miniInsert I)
+{
+	Block* b;
+	BufferManager bm; 
+	b=bm.GetBlock(I.tableName,0);
+    int pos=FindEnd(b->data);
+    if(pos!=0)b->data[pos++]='\n';
+    int i;
+    int posrecord=pos-1;
+    for(i=0;i<I.insertNum;i++)
+    {
+    	switch(I.cond[i].type)
+    	{
+    	case 0://int 
+    		setInt(b,pos,I.cond[i].intValue);
+    		pos+=sizeof(int);
+    		break;
+    	case 1://float
+    		setFloat(b,pos,I.cond[i].floatValue);
+    		pos+=sizeof(float);
+    		break;    		
+    	case 2://string
+			setString(b,pos,I.cond[i].stringValues);
+			pos+=sizeof(I.cond[i].stringValues);
+			break;
+		}
+		b->data[pos++]=',';
+    }
+    b->data[pos-1]=254;
+    b->IsWritten=1;
+    //µ±Ç°Ä¬ÈÏÃ¿¿é¶¼ÄÜĞ´½øÈ¥,Ííµã¸ù¾İÇé¿öÔÙ¸Ä 
+    //²åÈëÏÂÒ»¿é,ÔİÊ±Ã»Ğ´ºÃ 
     return 1;
 }
 
 bool RecordManager::DeleteRecord(miniDelete I,table t)
-{
+{/*
 	Block* b;
-	b=Readout(I.tableName);//è¯»å–è¡¨çš„ç¬¬ä¸€ä¸ªblock 
+	b=Readout(I.tableName);//¶ÁÈ¡±íµÄµÚÒ»¸öblock 
 	char* data,*temp;
+	int pos=0,tempos=0;
 	int i;
 	int num=t.attributeNum;
 	int order[num];
@@ -98,33 +116,32 @@ bool RecordManager::DeleteRecord(miniDelete I,table t)
 	{
 		order[i]=located(I.cond[i].attributeName,t);
 	}
-	while(b)//è®°å½•æœªè¢«è¯»ç©º 
+	while(b)//¼ÇÂ¼Î´±»¶Á¿Õ 
 	{
 		data=b->data;
-		while(data)
+		while(data[pos-1]!=0)
 		{
 			for(i=0;i<num;i++)
 			{
-				temp=findAttri(data,order[i]);
-				if(!cmpAttri(data,I.cond[i]))
+				tempos=findAttri(b,pos,order[i]);
+				if(!cmpAttri(b,tempos,I.cond[i]))
 				break;
 			}
-			if(i==num)//ç¬¦åˆæ¡ä»¶ 
+			if(i==num)//·ûºÏÌõ¼ş 
 			{
-				/*å¡«å……ç©ºæ ¼*/
-				FillBlack(data);
+				fullblack(b,pos);
 			}
 			else
-			data=FindNextRecord(data,t.attributeNum);
+			pos=FindNextRecord(b,pos);
 		}
-		b=getNextBlock(b);
-	}		
+		b=GetNextBlock(b);
+	}*/
 }
 
-bool DeleteRecordByBlock(Block* b,miniDelete I,table t)
+bool RecordManager::DeleteRecordByBlock(Block* b,miniDelete I,table t)
 {
 	char* data,*temp;
-	int i;
+	int tempos,pos=0,i;
 	int num=t.attributeNum;
 	int order[num];
 	for(i=0;i<num;i++)
@@ -132,90 +149,89 @@ bool DeleteRecordByBlock(Block* b,miniDelete I,table t)
 		order[i]=located(I.cond[i].attributeName,t);
 	}
 	data=b->data;
-	while(data)
+	while(data[pos-1]!=0)
 	{
 		for(i=0;i<num;i++)
 		{
-			temp=findAttri(data,order[i]);
-			if(!cmpAttri(data,I.cond[i]))
+			tempos=findAttri(b,pos,order[i]);
+			if(!cmpAttri(b,tempos,I.cond[i]))
 			break;
 		}
-		if(i==num)//ç¬¦åˆæ¡ä»¶ 
+		if(i==num)//·ûºÏÌõ¼ş 
 		{
-			/*å¡«å……ç©ºæ ¼*/
-			FillBlack(data);
+			/*Ìî³ä¿Õ¸ñ*/
+			fullblack(b,pos);
 		}
 		else
-		data=FindNextRecord(data,t.attributeNum);
-	}		
+		pos=FindNextRecord(b,pos);
+	}	
 }
 
-bool DeleteRecordByPos(Block* b,int pos,miniDelete I,table t)
+bool RecordManager::DeleteRecordByPos(Block* b,int pos,miniDelete I,table t)
 {
-	char* data,*temp;
-	int i;
+	char* data;
+	int tempos,i;
 	int num=t.attributeNum;
 	int order[num];
 	for(i=0;i<num;i++)
 	{
 		order[i]=located(I.cond[i].attributeName,t);
 	}
-	data=b->data[pos];
 	for(i=0;i<num;i++)
 	{
-		temp=findAttri(data,order[i]);
-		if(!cmpAttri(data,I.cond[i]))
+		tempos=findAttri(b,pos,order[i]);
+		if(!cmpAttri(b,tempos,I.cond[i]))
 		break;
 	}
-	if(i==num)//ç¬¦åˆæ¡ä»¶ 
+	if(i==num)//·ûºÏÌõ¼ş 
 	{
-		/*å¡«å……ç©ºæ ¼*/
-		FillBlack(data);
+		/*Ìî³ä¿Õ¸ñ*/
+		fullblack(b,pos);
 	}
-	else
-	data=FindNextRecord(data,t.attributeNum);	
+	return 1;
 }
 
-records SelectRecord(miniSelect I,table t)
+records RecordManager::SelectRecord(miniSelect I,table t)
 {
 	records record(t);
 	Block* b;
-	b=Readout(I.tableName);//è¯»å–è¡¨çš„ç¬¬ä¸€ä¸ªblock 
-	char* data,*temp;
+	//b=Readout(I.tableName);//¶ÁÈ¡±íµÄµÚÒ»¸öblock 
+	char* data; 
 	int i;
+	int tempos,pos=0;
 	int num=t.attributeNum;
 	int order[num];
 	for(i=0;i<num;i++)
 	{
 		order[i]=located(I.cond[i].attributeName,t);
 	}
-	while(b)//è®°å½•æœªè¢«è¯»ç©º 
+	while(b)//¼ÇÂ¼Î´±»¶Á¿Õ 
 	{
 		data=b->data;
-		while(data)
+		while(data[pos-1]!=0)
 		{
 			for(i=0;i<num;i++)
 			{
-				temp=findAttri(data,order[i]);
-				if(!cmpAttri(data,I.cond[i]))
+				tempos=findAttri(b,pos,order[i]);
+				if(!cmpAttri(b,tempos,I.cond[i]))
 				break;
 			}
-			if(i==num)//ç¬¦åˆæ¡ä»¶ 
+			if(i==num)//·ûºÏÌõ¼ş 
 			{
 				record.insert(b,pos);
 			}
 			else
-			data=FindNextRecord(data,t.attributeNum);
+			pos=FindNextRecord(b,pos);
 		}
-		b=getNextBlock(b);
+	//	b=GetNextBlock(b);
 	}
 	return record;
 }
-records SelectRecordByBlock(Block* b,miniSelect I,table t)
+records RecordManager::SelectRecordByBlock(Block* b,miniSelect I,table t)
 {
 	records record(t);
 	char* data,*temp;
-	int i;
+	int tempos,pos=0,i;
 	int num=t.attributeNum;
 	int order[num];
 	for(i=0;i<num;i++)
@@ -223,29 +239,29 @@ records SelectRecordByBlock(Block* b,miniSelect I,table t)
 		order[i]=located(I.cond[i].attributeName,t);
 	}
 	data=b->data;
-	while(data)
+	while(data[pos-1]!=0)
 	{
 		for(i=0;i<num;i++)
 		{
-			temp=findAttri(data,order[i]);
-			if(!cmpAttri(data,I.cond[i]))
+			tempos=findAttri(b,pos,order[i]);
+			if(!cmpAttri(b,tempos,I.cond[i]))
 			break;
 		}
-		if(i==num)//ç¬¦åˆæ¡ä»¶ 
+		if(i==num)//·ûºÏÌõ¼ş 
 		{
 			record.insert(b,pos);
 		}
 		else
-		data=FindNextRecord(data,t.attributeNum);
-	}
+		pos=FindNextRecord(b,pos);
+	}	
 	return record;	
 }
 
-records SelectRecordByPos(Block* b,int pos,miniSelect I,table t)
+records RecordManager::SelectRecordByPos(Block* b,int pos,miniSelect I,table t)
 {
 	records record(t);
 	char* data,*temp;
-	int i;
+	int i,tempos;
 	int num=t.attributeNum;
 	int order[num];
 	for(i=0;i<num;i++)
@@ -255,148 +271,90 @@ records SelectRecordByPos(Block* b,int pos,miniSelect I,table t)
 	data=b->data;
 	for(i=0;i<num;i++)
 	{
-		temp=findAttri(data,order[i]);
-		if(!cmpAttri(data,I.cond[i]))
+		tempos=findAttri(b,pos,order[i]);
+		if(!cmpAttri(b,tempos,I.cond[i]))
 		break;
 	}
-	if(i==num)//ç¬¦åˆæ¡ä»¶ 
+	if(i==num)//·ûºÏÌõ¼ş 
 	{
 		record.insert(b,pos);
 	}
 	return record;
 }
 
-
-Block* RecordManager::GetBlock(string name)
-{
-	BufferManager bm;
-	Block b;
-	b=bm.GetBlock(name,0);
-	return b;
-}
-
-Block* RecordManager::GetNextBlock(Block* b)
-{
-	BufferManager bm;
-	Block* next;
-	if(!next=bm.GetBlock(b->FileName,b->offset+1))
-	next=bm.GetNewBlock(b->FileName,b->offset+1);
-	if(b->IsAccessed)
-	{
-		SetAccessed(next);
-		b->IsAccessed=false;
-	}
-	if(b->IsWritten)
-	{
-		SetWritten(next);
-		b->IsWritten=false;
-	}
-	if(b->IsLocked)
-	{
-		SetLock(next);
-		UnLock(b);
-	}
-	return next;
-}
-
+/*¶¨Î»µ½block×îºóÒ»¸ö×Ö·û*/
 int RecordManager::FindEnd(char* data)
 {
 	int i=0;
-	while(data[i]!=0)i++;
+	if(data[0]==0)return 0; 
+	while(data[i]!=-2)i++;
 	return i;
 }
 
+/*ÕÒµ½ÊôĞÔµÄÎ»ÖÃ£¨ÊÇ±íµÄµÚ¼¸¸öÊôĞÔ£©*/
 int RecordManager::located(string name,table t)
 {
 	int i;
 	for(i=1;i<=t.attributeNum;i++)
 	{
 		if(t.attributes[i].name==name)
-		break; 
+		break;
 	}
 	return i;
 }
 
-char* RecordManager::findAttri(char* data,int order)
+/*ÕÒµ½ÊôĞÔÆ«ÒÆ*/ 
+int RecordManager::findAttri(Block *block, int posBegin,int order)
 {
-	int i=1;
-	char* temp=data;
-	while(i<order)
+	int i=0;
+	char* p=block->data;
+	for(i=0;i<order;i++)
 	{
-		if(*temp==',')i++;
-		temp++;
+		while(p[posBegin++]!=',');
 	}
-	return temp;
+	return posBegin;
 }
 
-bool RecordManager::cmpAttri(char* d,condition c)
+/*±È½ÏÊôĞÔ*/
+bool RecordManager::cmpAttri(Block *block, int posBegin,condition c)
 {
-	switch c.type:
-		case 1:if(*(int*)d==c.intValue)return true;
-			else return false;
-		case 2:if(*(float*)d==c.floatValue)return true;
-			else return false;
-		case 3:if(*d==c.stringVlalues)return true;
-			else return false;//æ­¤å¤„ä¸å®Œå–„ 
-}
-
-char* RecordManager::FindNextRecord(char* data,int num)
-{
-	int i=1;
-	char* temp=data;
-	while(i<=num)
+	int i;
+	float f;
+	string s;
+	switch (c.type)
 	{
-		if(*temp==',')i++;
-		temp++;
+		case 1:
+			i=getInt(block,posBegin);
+			if(i==c.intValue)return 1;
+			else return 0;
+		case 2:
+			f=getFloat(block,posBegin);
+			if(f==c.floatValue)return 1;
+			else return 0;
+		case 3:
+			s=getString(block,posBegin);
+			if(s==c.stringValues)return 1;
+			else return 0;
+		default:
+			return 0;
 	}
-	return temp;	
 }
 
-Block* RecordManager::Writein(string name);//find the block that can be inserted
+/*¸ù¾İµ±Ç°Æ«ÒÆÁ¿·µ»ØÏÂÒ»ÌõÆ«ÒÆ*/
+int RecordManager::FindNextRecord(Block *block, int posBegin)
 {
-	BufferManager bm;
-	CatelogManager cm;
-	Block* b=GetBlock(name,0);
-	char* temp;
-	table t;
-	t=cm.GetTable(name);
-	int LenR=0,LenB,i;
-	for(i=0;i<t.attributeNum;i++)
-	{
-		LenR+=t.attributes[i].Length;
-	}
-	while(1)
-	{ 
-		LenB=0;
-		temp=b->data;
-		while(temp[0]!=0)
-		{
-			temp++;
-			LenB++;
-		}
-		if(LenB+LenR<=4096)break;
-		else b=GetNextBlock(b); 
-	}
-	bm.SetWritten(b);
-	bm.SetAccessed(b);
-	bm.SetLock(b);
-	return b;
+	int i;
+	while(block->data[posBegin+i]!='\n')i++;
+	return posBegin+i+1;
 }
 
-Block* RecordManager::Writeback(Block* b)
+/*ÓÃ¿Õ¸ñ´úÌædelete*/
+void RecordManager::fullblack(Block *block, int posBegin)
 {
-	b->IsAccessed=false;
-	b->IsWritten=false;
-	b->IsLocked=false;
-}
-
-Block* RecordManager::Readout(string name)
-{
-	BufferManager bm;
-	Block* b;
-	b=bm.GetBlock(name,0);
-	bm.SetAccessed(b);
-	return b;
+	int i=0;
+	char* p=block->data+posBegin;
+	while(p[i]!='\n'&&p[i]!=0)p[i++]=' ';
+	return; 
 }
 
 int RecordManager::getInt(Block *block, int posBegin)
@@ -429,9 +387,11 @@ void RecordManager::setFloat(Block *block, int posBegin, float num)
 	}
 }
 
-std::string RecordManager::getString(Block *block, int posBegin,int num)
+std::string RecordManager::getString(Block *block, int posBegin)
 {
+	int num=0; 
 	char* str = (char*)block->data + posBegin;
+	if(str[num]!='\n'&&str[num]!=',')num++;
 	std::string theString(str, num);
 	return theString;
 }

@@ -1,16 +1,26 @@
 /*
- * File: IndexManager.cpp
- * Version: 1.1
+ * File: IndexManager.h
+ * Version: 1.2
  * Author: kk
  * Created Date: Sat Jun 16 01:07:47 DST 2018
  * Modified Date: Thu Jun 21 21:06:52 DST 2018
+ * Modified Date: Fri Jun 22 20:41:49 DST 2018
  * -------------------------------------------
- * miniSQL的IndexManager的类函数实现
+ * miniSQL的IndexManager的类头文件声明
  * version 1.0: 基本操作的实现
  * version 1.1: 修改了select 以及 delete的接口，使得能够判断异常状态
+ * version 1.2: 再次修正delete的接口，避免提前删除数据
  */
 
-IndexManager::IndexManager(BufferManager& bm)
+/*
+ * 这样的设计是想尽可能减少indexManager的申请，
+ * 在运行期间只定义一次indexmanager变量
+ * 也就是在API的private中定义，API只定义一次
+ * 这样的好处是：减小操作增加对构造和析构的开销
+ * 更好的操作是BPTree做一个map，但这样对内存大小控制较难
+ */
+IndexManager::IndexManager(BufferManager& bm):
+    bm(bm)
 {
     intBPTree = new BPTree<int>(bm);
     floatBPTree = new BPTree<float>(bm);
@@ -19,6 +29,7 @@ IndexManager::IndexManager(BufferManager& bm)
 
 IndexManager::~IndexManager()
 {
+    // 析构自动写
     if(intBPTree->isChanged())
         intBPTree->wiriteBack();
     if(floatBPTree->isChanged())
@@ -65,7 +76,8 @@ enum Operator{
 */
 bool IndexManager::_select(const std::string &indexName, const condition &cond, std::vector<TuplePtr> &tuplePtrs)
 {
-    tuplePtrs.resize(0);
+    tuplePtrs.clear();
+    SqlValueType type = cond.type;
     GetBPTree(indexName, type);
     switch(cond.oprt)
     {
@@ -88,27 +100,18 @@ bool IndexManager::_select(const std::string &indexName, const condition &cond, 
     return true;
 }
 
-bool IndexManager::_delete(const std::string &indexName, const condition &cond, std::vector<TuplePtr> &tuplePtrs)
+bool IndexManager::_delete(const std::string &indexName, const condition &value)
 {
-    bool canDo = _select(indexName, condition, tuplePtrs);
-    switch(cond.oprt)
+    bool res;
+     GetBPTree(indexName, value.type);
+     switch(value.type)
     {
-        case EQ:
-            switch(type)
-            {
-                case Integer:   intBPTree->_delete(cond.intValue);    break;
-                case Float:     floatBPTree->_delete(cond.floatValue);  break;
-                case String:     stringBPTree->_delete(cond.stringValues);break;
-            }
-            break;
-        case LE:
-        case GE:
-        case LT:
-        case GT:
-        case NE:
-        default: return false;
+        case Integer:   res = intBPTree->_delete(value.intValue);    break;
+        case Float:     res = floatBPTree->_delete(value.floatValue);    break;
+        case String:    res = stringBPTree->_delete(value.stringValues); break;
+        default: res = false;
     }
-    return true;
+    return res;
 }
 
 // update <table_name> set <attribute> = <new_value> where <conditions>
@@ -128,15 +131,16 @@ public:
 */
 bool IndexManager::_insert(const std::string &indexName, const condition &value, const TuplePtr &valueptr)
 {
+    bool res;
     GetBPTree(indexName, value.type);
     switch(value.type)
     {
-        case Integer:   intBPTree->_insert(value.intValue, valueptr);    break;
-        case Float:     floatBPTree->_insert(value.floatValue, valueptr);    break;
-        case String:    stringBPTree->_insert(value.stringValues, valueptr); break;
-        default: return false;
+        case Integer:   res = intBPTree->_insert(value.intValue, valueptr);    break;
+        case Float:     res = floatBPTree->_insert(value.floatValue, valueptr);    break;
+        case String:    res = stringBPTree->_insert(value.stringValues, valueptr); break;
+        default: res = false;
     }
-    return true;
+    return res;
 }
 
 /*

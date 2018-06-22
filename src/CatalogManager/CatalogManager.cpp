@@ -1,5 +1,3 @@
-#include "CatalogManager.h"
-
 int CatalogManager::getTableNum()
 {
 	return tableNum;
@@ -9,7 +7,7 @@ int CatalogManager::getIndexNum()
 {
 	return indexNum;
 }
-
+ 
 bool CatalogManager::readTableFile()
 {
 	ifstream infile;
@@ -41,11 +39,14 @@ bool CatalogManager::readTableFile()
 					int vN = splitString(s, strDelims, strDest);
 					int aN = t.attributeNum;
 					a.name = strDest[0];
+					a.primary = false;
+					a.unique = false;
 					for (int i = 1; i < vN; i++)
 					{
 						if (strDest[i] == "int")
 						{
 							a.type = INT;
+							a.length = 4;
 						}
 						if (strDest[i] == "char")
 						{
@@ -55,6 +56,7 @@ bool CatalogManager::readTableFile()
 						if (strDest[i] == "float")
 						{
 							a.type = FLOAT;
+							a.length = 8;
 						}
 						if (strDest[i] == "unique")
 						{
@@ -139,6 +141,7 @@ bool CatalogManager::writeTableFile()
 
 }
 
+
 bool CatalogManager::isTable(string tableName)
 {
 	readTableFile();
@@ -146,12 +149,14 @@ bool CatalogManager::isTable(string tableName)
 	{
 		if (tables[i].tableName == tableName)
 		{
+			//cout << "Already there exists the table" << endl;
 			return true;
 		}
 			
 	}
 	return false;
 }
+
 
 bool CatalogManager::isAttribute(string tableName, string attributeName)
 {
@@ -174,10 +179,12 @@ bool CatalogManager::isAttribute(string tableName, string attributeName)
 		return false;
 }
 
+
 bool CatalogManager::createTable(miniCreateTable I)
 {
 	if (isTable(I.tableName))
 	{
+		//cout << "This table alreay exists." << endl;
 		return false;
 	}
 	else
@@ -226,6 +233,25 @@ bool CatalogManager::createTable(miniCreateTable I)
 	}
 }
 
+
+table CatalogManager::getTable(string tableName)
+{
+	table t;
+	if (isTable(tableName))
+	{
+		for (int i = 0; i < getTableNum(); i++)
+		{
+			if (tables[i].tableName == tableName)
+			{
+				return tables[i];
+			}
+		}
+	}
+	else
+		return t;
+}
+
+
 bool CatalogManager::dropTable(string tableName)
 {
 	if (isTable(tableName))
@@ -245,8 +271,14 @@ bool CatalogManager::dropTable(string tableName)
 		readIndexFile();
 		for (int i = 0; i < getIndexNum(); i++)
 		{
+			//cout << "Begin checking the index" << endl;
+			//cout << getIndexNum() << endl;
+			//cout << indices[i].indexName << endl;
+			//cout << indices[i].tableName << endl;
+			//cout << indices[i].attributeName <<endl;
 			if (indices[i].tableName == tableName)
 			{
+				//cout << "This is an index" << endl;
 				indices.erase(indices.begin() + i);
 				indexNum = indices.size();
 				rei = writeIndexFile();
