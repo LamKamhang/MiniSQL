@@ -33,33 +33,36 @@
 
 using namespace MINISQL_BASE;
 
+#define _cptr2float(x)  (*(float*)(x))
 #define _cptr2int(x)  (*(int*)(x))
 #define _cptr2uint(x) (*(unsigned int*)(x))
 #define _data2cptr(x)  ((char*)(&x))
 
-class SR
+class NodeSearchParse
 {
 public:
     OffsetType tupleOffset;
-    OffsetType offsetInNode;
+    unsigned int offsetInNode;
     BlockIDType blockOffset;
     string indexName;
     bool isFound;
 
+#define DEBUG
 #ifdef DEBUG
-    void printSR(void)
+    void printNSP(void)
     {
         if(!isFound)
         {
-            cout<<"Not Found"<<endl;;
+            std::cout<<"Not Found"<<std::endl;;
             return;
         }
-        cout<<"---------------------"<<endl;
-        cout<<"IndexName: "<<indexName<<endl;
-        cout<<"Block Offset: "<<blockOffset<<endl;
-        cout<<"Tupple Offset: "<<tupleOffset<<endl;
-        cout<<"Offset in Node: "<<offsetInNode<<endl;
-        cout<<"---------------------"<<endl;
+        std::cout<<"---------------------"<<std::endl;
+        std::cout<<"IndexName: "<<indexName<<std::endl;
+        std::cout<<"Block Offset: "<<blockOffset<<std::endl;
+        std::cout<<"Tupple Offset: "<<tupleOffset.blockID;
+        std::cout <<" " << tupleOffset.offset <<std::endl;
+        std::cout<<"Offset in Node: "<<offsetInNode<<std::endl;
+        std::cout<<"---------------------"<<std::endl;
     }
 #endif
 };
@@ -68,23 +71,23 @@ class IndexHead{
 public:
     IndexHead(Block* pHead):
         pEmptyId    (pHead->data), 
-        PNodeNum    (pHead->data+BLOCKSIZE-INT_SIZE*1),
-        PRoot       (pHead->data+BLOCKSIZE-INT_SIZE*2), 
+        pNodeNum    (pHead->data+BLOCKSIZE-INT_SIZE*1),
+        pRoot       (pHead->data+BLOCKSIZE-INT_SIZE*2), 
         pFirstLeaf  (pHead->data+BLOCKSIZE-INT_SIZE*3), 
-        pKeyType    (pHead->data+BLOCKSIZE-INT_SIZE*4), 
+        pKeySize    (pHead->data+BLOCKSIZE-INT_SIZE*4), 
         pEmptyNum   (pHead->data+BLOCKSIZE-INT_SIZE*5)
     {};
 
     int getRoot()       {return _cptr2int(pRoot);};
     int getNodeNum()    {return _cptr2int(pNodeNum);};
     int getFirstLeaf()  {return _cptr2int(pFirstLeaf);};
-    int getKeyType()    {return _cptr2int(pKeyType);};
+    int getKeySize()    {return _cptr2int(pKeySize);};
     
     // 把内容拷贝到heap上指针的所指内容中
     void setRoot(int p)     {memcpy(pRoot,      _data2cptr(p), INT_SIZE);};
     void setNodeNum(int n)  {memcpy(pNodeNum,   _data2cptr(n), INT_SIZE);};
     void setFirstLeaf(int l){memcpy(pFirstLeaf, _data2cptr(l), INT_SIZE);};
-    void setKeyType(int k)  {memcpy(pKeyType,   _data2cptr(k), INT_SIZE);};
+    void setKeySize(int k)  {memcpy(pKeySize,   _data2cptr(k), INT_SIZE);};
 
 
     void getEmptyBlockList(list<int>& emptyList)
@@ -99,7 +102,7 @@ public:
         }
     }
 
-    void setEmptyBlockList(list<int>& emptyList)
+    void setEmptyBlockList(const list<int>& emptyList)
     {
         setEmptyNum(emptyList.size());
         char *p = pEmptyId;
@@ -116,7 +119,7 @@ private:
     char* pNodeNum;
     char* pRoot;
     char* pFirstLeaf;
-    char* pKeyType;
+    char* pKeySize;
 
     char* pEmptyNum;
     void setEmptyNum(int n){memcpy(pEmptyNum, _data2cptr(n), INT_SIZE);};
@@ -127,7 +130,7 @@ private:
 class TreeNode{
 public:
     // ignore the class of BPTree, left it to BPTree.
-    char* pData;
+    char* pData;        // for BPTree to move, so it's funciton like stack pointer.
     BlockIDType id;
 
 public:
@@ -167,105 +170,95 @@ public:
     inline void increaseCount(int k){int c = getCount();c+=k;setCount(c);};
     inline void decreaseCount(int k){int c = getCount();c-=k;setCount(c);};
 private:
-    char* pCount;
-    char* pParent;
-    char* pIsLeaf;
+    char* pCount;       // how many keys in the node
+    char* pParent;      // the block id of parent(if there no parent, id is 0, since block 0 is for indexHead)
+    char* pIsLeaf;      // the block id of sibling(0 means the last leaf, and -something means it is an inner node)
 
-    char* head;
-};
-
-class KV
-{
-public:
-    int intKey;
-    std::string stringKey;
-    float floatKey;
-    KV(int& ik):intKey(ik){};
-    KV(float& fk):floatKey(fk){};
-    KV(const std::string& sk):stringKey(sk){};
-    KV(){};
-    void assignTo(int& k)               {k = intKey;};
-    void assignTo(float& k)             {k=floatKey;};
-    void assignTo(const std::string& k) {k=stringKey;};
+    char* head;         // this is the pointer head of the pData.
 };
 
 /*
  *   B+ Tree 
  *   with key type T
- *     [ BLOCKSIZE-sizeof(OffsetType)-sizeof(int) * 2 ] / (keySize + offsetSize)  - 1 
+ *     [ BLOCKSIZE-sizeof(OffsetType)-sizeof(int) * 2 ] / (keySize + TPTR_SIZE)  - 1 
  */
-template <class T>
+template <typename T>
 class BPTree 
 {
-
 public:
-    string indexName;
+    std::string indexName;  // coresponding to the file name
 private:
-    int degree;             // Degree of node
-    BlockIDType root;
-    BlockIDType firstLeaf;
     BufferManager& bm;
+    int degree;             // Degree of node, do not need to write into disk.
+    BlockIDType root;       // need to write into disk.
+    BlockIDType firstLeaf;  // need to write into disk.
     //Index Info
-    SqlValueType keytype;
-    int keySize;
-    int offsetSize;
-    int indexSize;
-    int nodeNum;
-    bool Changed;
+    int keySize;            // need to write into disk.
+    int indexSize;          // can calculate by keysize and offsetsize(tupleptrsize)
+    int nodeNum;            // need to write into disk.
+    bool Changed;           // check whether the (need_write_variable) need to write into disk.
 public:
-    BPTree(string filename,int nodeDegree,SqlValueType type,BufferManager& bm_in);
+    BPTree(const std::string &indexName, const int keySize, 
+                  BufferManager& bm, 
+                  int nodeDegree = 0);
     BPTree(BufferManager& bm);
     ~BPTree();
-    /* Inline function */
-    
-    inline BlockIDType getRoot(){return root;}; 
-    inline BlockIDType getFirstLeaf(){return firstLeaf;};
-    inline bool isChanged(void){return Changed;};
 
-    bool _delete(T oldkey);
-    void _insert(T newkey,OffsetType toffset);    // Insert an index record
-    bool _modify(T oldkey,T newkey,OffsetType newoffset);
-    void _drop(string filename);
-    void _release(void);
-    OffsetType _search(T key);
+    /* Inline function */    
+    inline BlockIDType getRoot()        {return root;}; 
+    inline BlockIDType getFirstLeaf()   {return firstLeaf;};
+    inline bool isChanged()             {return Changed;};
+
+    bool _delete(const T &oldkey);
+
+    bool _insert(const T &newkey, const TuplePtr &newtupleptr);    // Insert an index record
+
+    bool _modify(const T &oldkey, const T &newkey, const TuplePtr &newtupleptr);
+    
+    bool _drop(const std::string &indexName);
+
+    bool _release(void);
+
+    TuplePtr _search(const T &key);
+
+    bool range_search(const T lvalue, const int lclosed, 
+                      const T rvalue, const int rclosed,
+                      std::vector<TuplePtr>& tuplePtrs);
 
     void init(void);
 
-    void wiriteBack();
-    void readFromFile(string filename);
-    void createNewFile(string filename,SqlValueType type);
-    bool range_search(T lower_bound,int Op1,T upper_bound,int Op2,list<OffsetType>& offsetList);
-    Block* createNewNode(void);
-    OffsetType block_search(Block* pBlock,T key);
-
-    
-    /*
-    bool _delete(T oldkey);                       // Delete an index record
-    void _drop();                                // Delete the whole tree
-    bool _modify(T oldkey,T newkey,OffsetType newoffset=-1);  // Modify an index record*/
+    void writeBack();
+    void readFromFile(const std::string &filename);
+    void createNewFile(const std::string &filename, int keySize);
+    TuplePtr block_search(const Block* pBlock, const T &key);
 
 private:
-    /*void deleteNode(BlockId bid);               // Delete a tree recursively, only used by _drop()
-    void AdjustParent(BlockId bid);           // Adjust internalNode after deletetion
-    int getSize(SqlValueType type);*/
-
     list<int> emptyList;    //空块
 
-    void insert_in_leaf(Block* pBlock,T newkey,OffsetType newoffset);
-    char* insert_in_internal(Block* pBlock,T newkey,BlockIDType bidLeft,BlockIDType bidRight);
-    void adjustAfterDelete(Block* pNode,char* delPos);
+    Block* createNewNode(void);
+
+    void insert_in_leaf(Block* pBlock, const T newkey,const TuplePtr &newtupleptr);
+
+    char* insert_in_internal(Block* pBlock, const T newkey, const BlockIDType bidLeft, const BlockIDType bidRight);
+
+    void adjustAfterDelete(Block* pNode, char* delPos);
+
     Block* getKeyNode(T key);
-    void adjustParentInfo(BlockIDType id,BlockIDType newp);
-    int searchSon(TreeNode& parent,BlockIDType id);
+
+    void adjustParentInfo(BlockIDType id, BlockIDType newp);
+
+    int searchSon(TreeNode& parent, const BlockIDType id);
     //void convertKey(string key);
 
     T getKey(char* p);
-    void writeKey(char* p,T newkey);
-    OffsetType getOffset(char* p);
-    void writeOffset(char* p,OffsetType offset);
-    
-    bool searchBlock(Block* pBlock,T key,SR& sr);
 
+    void setKey(char* p, T newkey);
+
+    OffsetType getOffset(char* p);
+
+    void setOffset(char* p, OffsetType offset);
+    
+    bool searchBlock(Block* pBlock, T key, NodeSearchParse& res);
 
 #define BPT_TEST
 #ifdef BPT_TEST
@@ -277,19 +270,19 @@ public:
             for(int i=0;i<a.getCount();a.pData+=indexSize,i++)
             {
                 T key =  getKey(a.pData);
-                cout<<key<<" ";
+                std::cout<<key<<" ";
             }
-            cout<<endl;
+            std::cout<<std::endl;
         }
         else
         {
-            a.pData+=offsetSize;
+            a.pData+=TPTR_SIZE;
             for(int i=0;i<a.getCount();a.pData+=indexSize,i++)
             {
                 T key = getKey(a.pData);
-                cout<<key<<" ";
+                std::cout<<key<<" ";
             }
-            cout<<endl;
+            std::cout<<std::endl;
         }
     };
     
@@ -301,16 +294,16 @@ public:
         do{
             Block* pb = bm.GetBlock(indexName, nextLeaf);
             a.attachTo(pb);
-            cout<<"[";
+            std::cout<<"[";
             for(int i=0;i<a.getCount();a.pData+=indexSize,i++)
             {
                 T key =  getKey(a.pData);
-                cout<<key<<" ";
+                std::cout<<key<<" ";
             }
-            cout<<"] ";
+            std::cout<<"] ";
             nextLeaf = a.isLeaf();
         }while(a.isLeaf()>0);
-        cout<<"\n"<<endl;
+        std::cout<<"\n"<<std::endl;
         
     };
 
@@ -319,9 +312,9 @@ public:
         list<int>::iterator it;
         for(it=emptyList.begin();it!=emptyList.end();it++)
         {
-            cout<<*it<<" ";
+            std::cout<<*it<<" ";
         }
-        cout<<endl;
+        std::cout<<std::endl;
     };
 #endif
 
@@ -337,10 +330,11 @@ public:
 
 
 
-template <class T>
+template <typename T>
 BPTree<T>::~BPTree()
 {
-    //cout<<nodeNum<<" "<<root<<" "<<firstLeaf<<" "<<keytype<<endl;
+    if (Changed)
+        writeBack();
 }
 
 
@@ -350,90 +344,77 @@ BPTree<T>::~BPTree()
  *  @int size of key in byte
  */
 
-template <class T>
-BPTree<T>::BPTree(BufferManager& bm_in):bm(bm_in)
+template <typename T>
+BPTree<T>::BPTree(BufferManager& bm):
+    indexName(""), bm(bm), Changed(false)
 {
-    indexName = "";
-    Changed = false;
 }
 
 /* Used for test */
-template <class T>
-BPTree<T>::BPTree(string filename,int nodeDegree,SqlValueType type,BufferManager& bm_in):bm(bm_in){
-    TreeNode node;
-    indexName = filename;
-    bm = bm_in;
-    keytype = type;
-    offsetSize = sizeof(OffsetType);
-
-    if(type==SQL_INT)
-    {   
-        keySize = sizeof(int);
-    }
-    else if(type==SQL_FLOAT)
-    {
-        keySize = sizeof(float);
-    }
-    else 
-    {
-        keySize = keytype + 1;
-    }
-    indexSize = keySize+offsetSize;
-    degree = (BLOCKSIZE-sizeof(OffsetType)-sizeof(int)*3)/(indexSize) - 2;
-    //degree = 5;
-    root = 1;
-    firstLeaf = 1;
-    nodeNum = 1;
-
-    FILE* fp = fopen(filename.c_str(), "w");
+// 一个block里首先除了包含正常的数据外，还包含了root, firstleaf, nodenum以及keysize和emptynum的信息， 最后-2则是为了split
+template <typename T>
+BPTree<T>::BPTree(const std::string &indexName, const int keySize, 
+                  BufferManager& bm, 
+                  int nodeDegree):
+    indexName(indexName), bm(bm), degree(nodeDegree), 
+    root(1), firstLeaf(1), keySize(keySize), 
+    indexSize(keySize+TPTR_SIZE), nodeNum(1), Changed(false)
+{
+    FILE* fp = fopen(indexName.c_str(), "w");
     if(fp==NULL)
     {
-        std::cerr << "File Create Error" << std::endl;
+        std::cerr << "ERROR::CANNOT OPEN FILE!" << std::endl;
+        this->indexName = "";
+        return;
     }
     fclose(fp);
 
-    Block* pHead = bm.GetNewBlock(filename, 0);
+    if (degree == 0)
+    {
+        degree = (BLOCKSIZE-TPTR_SIZE-INT_SIZE*3)/(indexSize) - 2;
+    }
+    // 往文件里写入BPTree的信息
+    Block* pHead = bm.GetNewBlock(indexName, 0);
     bm.SetWritten(pHead);
 
     IndexHead head(pHead);
     
-    head.setNodeNum(1);   //NodeNumber
-    head.setRoot(1);  //root node id
-    head.setFirstLeaf(1);    //first Leaf id
-    head.setKeyType(keytype);
+    head.setNodeNum(nodeNum);      //NodeNumber
+    head.setRoot(root);             //root node id
+    head.setFirstLeaf(firstLeaf);    //first Leaf id
+    head.setKeySize(keySize);
     emptyList.clear();
 
     head.setEmptyBlockList(emptyList);
-    //cout<<*(node.pCount)<<" "<<*(node.pParent)<<endl;
+    //std::cout<<*(node.pCount)<<" "<<*(node.pParent)<<std::endl;
     
-    Block* pBlock = bm.GetNewBlock(filename,1);
+    Block* pBlock = bm.GetNewBlock(indexName, 1);
     bm.SetWritten(pBlock);
-    node.attachTo(pBlock);
-    node.setCount(0);
-    node.setParent(-1);
-    node.setLeaf(0);
+    TreeNode node(pBlock);
+    node.setCount(0);   // 当前没有key值
+    node.setParent(0);  // 没有父节点（root）
+    node.setLeaf(0);    // 非负数表示叶子结点，其中0表示最后一个叶子结点
     Changed = false;
-    //cout<<*(node.pCount)<<" "<<*(node.pParent)<<endl;
+    //std::cout<<*(node.pCount)<<" "<<*(node.pParent)<<std::endl;
 }
 
 
-template <class T>
+template <typename T>
 Block* BPTree<T>::getKeyNode(T key)
 {
-    TreeNode node;
-    Block* pBlock = bm.GetBlock(indexName,root);
+    Block* pBlock = bm.GetBlock(indexName, root);
     if(pBlock==NULL)
     {
-        cerr<<"Buffer Error"<<endl;
+        std::cerr<<"ERROR::BUFFER CANNOT READ!"<<std::endl;
         exit(-1);
     }
     bm.SetWritten(pBlock);
 
-    node.attachTo(pBlock);
+    TreeNode node(pBlock);
     int bid = root;
     while(node.isLeaf()<0)
     {
-        node.pData += offsetSize;   //Move to first key
+        node.pData += TPTR_SIZE;   //Move to first key
         for(int i=node.getCount();i>0;node.pData += indexSize,i--)
         {
             if(getKey(node.pData)>key)
@@ -441,8 +422,8 @@ Block* BPTree<T>::getKeyNode(T key)
                 break;
             }
         }
-        node.pData -= offsetSize;
-        bid = (int)getOffset(node.pData);
+        node.pData -= TPTR_SIZE;
+        bid = getOffset(node.pData).blockID;
         pBlock = bm.GetBlock(indexName, bid);
         bm.SetWritten(pBlock);
         node.attachTo(pBlock);
@@ -452,18 +433,17 @@ Block* BPTree<T>::getKeyNode(T key)
 
 
 
-template <class T>
-void BPTree<T>::insert_in_leaf(Block* pBlock,T newkey,OffsetType newoffset)
+template <typename T>
+void BPTree<T>::insert_in_leaf(Block* pBlock, const T newkey,const TuplePtr &newtupleptr)
 {
-    TreeNode node;
-    node.attachTo(pBlock);
+    TreeNode node(pBlock);
     bm.SetWritten(pBlock);
 
+    // 指向最后一个key_index
     char* p = node.pData+(node.getCount()-1) * indexSize;
     while(p>=node.pData)
     {
-        T k = getKey(p);
-        if(k<=newkey)
+        if(getKey(p) <= newkey)
         {
             break;
         }
@@ -471,28 +451,30 @@ void BPTree<T>::insert_in_leaf(Block* pBlock,T newkey,OffsetType newoffset)
         p-=indexSize;
     }
     p+=indexSize;
-    writeKey(p,newkey);
-    writeOffset(p+keySize,newoffset);
+    setKey(p,newkey);
+    setOffset(p+keySize, newtupleptr);
 
     node.increaseCount(1);
+#define OUTPUT
 #ifdef OUTPUT
-    cout<<"Insert In Leaf "<<pBlock->Offset<<": "<<newkey<<endl;
+    std::cout<<"Insert In Leaf "<<pBlock->Offset<<": "<<newkey<<std::endl;
     printNode(pBlock);
 #endif
 }
 
-template <class T>
+template <typename T>
 char* BPTree<T>::insert_in_internal(Block* pBlock,T newkey,BlockIDType bidLeft,BlockIDType bidRight)
 {
-    TreeNode node;
-    node.attachTo(pBlock);
+    TreeNode node(pBlock);
     bm.SetWritten(pBlock);
-    char* p = node.pData+(node.getCount()-1) * indexSize+offsetSize;
-    char* end = node.pData+offsetSize;
+
+    // 指向最后一个key
+    char* p = node.pData+(node.getCount()-1) * indexSize+TPTR_SIZE;
+    // 开始的第一个key
+    char* end = node.pData+TPTR_SIZE;
     while(p>=end)
     {
-        T k = getKey(p);
-        if(k<=newkey)
+        if(getKey(p) <= newkey)
         {
             break;
         }
@@ -500,35 +482,36 @@ char* BPTree<T>::insert_in_internal(Block* pBlock,T newkey,BlockIDType bidLeft,B
         p-=indexSize;
     }
     p+=indexSize;
-    writeKey(p,newkey);
-    writeOffset(p+keySize,bidRight);
-    writeOffset(p-offsetSize,bidLeft);
+    setKey(p,newkey);
+    setOffset(p+keySize,bidRight);
+    setOffset(p-TPTR_SIZE,bidLeft);
 
    // adjustParentInfo(bidLeft,pBlock->Offset);
    // adjustParentInfo(bidRight,pBlock->Offset);
 
     node.increaseCount(1);
 #ifdef OUTPUT
-    cout<<"Insert In Internal "<<pBlock->Offset<<": "<<newkey<<endl;
+    std::cout<<"Insert In Internal "<<pBlock->Offset<<": "<<newkey<<std::endl;
     printNode(pBlock);
 #endif
     return p;
 }
 
 
-template <class T>
-void  BPTree<T>::_insert(T newkey,OffsetType newoffset)
+template <typename T>
+bool  BPTree<T>::_insert(const T &newkey, const TuplePtr &newtupleptr)
 {
     Changed = true;
     Block* pBlock = getKeyNode(newkey);
     
     TreeNode node(pBlock);
-    insert_in_leaf(pBlock,newkey,newoffset);
+    insert_in_leaf(pBlock,newkey,newtupleptr);
     if(node.getCount()<degree)
     {
-        return ;
+        return true;
     }
 
+    // 开始调整，split
     bm.SetLock(pBlock);
 
     Block* pNewBlock = createNewNode();
@@ -541,8 +524,6 @@ void  BPTree<T>::_insert(T newkey,OffsetType newoffset)
 
     TreeNode newNode(pNewBlock);
     bm.SetWritten(pNewBlock);
-
-    node.attachTo(pBlock);
     bm.SetWritten(pBlock);
 
     newNode.setCount(node.getCount()-splitPos);
@@ -550,23 +531,26 @@ void  BPTree<T>::_insert(T newkey,OffsetType newoffset)
     newNode.setLeaf(node.isLeaf());
     node.setLeaf(newNode.id);
     newNode.setParent(node.getParent());
+#define TEST_DELETEs
 #ifdef TEST_DELETE
-    cout<<"A's parent: "<<node.getParent()<<endl;
-    cout<<"B's parent: "<<newNode.getParent()<<endl;
+    std::cout<<"A's parent: "<<node.getParent()<<std::endl;
+    std::cout<<"B's parent: "<<newNode.getParent()<<std::endl;
 #endif
+
+    // 上浮的key
     T upperkey = getKey(newNode.pData);
     
 
-    if(node.getParent()<0) //分裂节点为根节点
+    if(node.getParent() == 0) //分裂节点为根节点
     {
-
+        // 创建一个新结点作为根
         Block* pRootBlock=createNewNode();
 
         TreeNode newRoot(pRootBlock);
         bm.SetWritten(pRootBlock);
     
-        newRoot.setParent(-1);
         newRoot.setCount(0);
+        // 一定不是叶子结点了
         newRoot.setLeaf(-1);
 
         root = newRoot.id;  //更新root
@@ -574,26 +558,27 @@ void  BPTree<T>::_insert(T newkey,OffsetType newoffset)
         node.setParent(root);
         newNode.setParent(root);
     
+        // 上浮的时候，把key的左右两个node的结点id都上浮
         insert_in_internal(pRootBlock,upperkey,node.id,newNode.id);
 #ifdef OUTPUT
-        cout<<"in new root: ";
+        std::cout<<"in new root: ";
         printNode(pRootBlock);
 #endif
         bm.UnLock(pBlock);
         bm.UnLock(pNewBlock);  //解锁
 #ifdef OUTPUT
-        cout<<"Split "<<pBlock->Offset<<endl;
-        cout<<"Left:";
+        std::cout<<"Split "<<pBlock->Offset<<std::endl;
+        std::cout<<"Left:";
         printNode(pBlock);
-        cout<<"id="<<node.id<<" ";
-        cout<<"Parent="<<node.getParent()<<endl;
+        std::cout<<"id="<<node.id<<" ";
+        std::cout<<"Parent="<<node.getParent()<<std::endl;
        
-        cout<<"Right:";
+        std::cout<<"Right:";
         printNode(pNewBlock);
-        cout<<"id="<<newNode.id<<" ";
-        cout<<"Parent="<<newNode.getParent()<<endl;
+        std::cout<<"id="<<newNode.id<<" ";
+        std::cout<<"Parent="<<newNode.getParent()<<std::endl;
 #endif
-        return;
+        return true;
     }
     bm.UnLock(pBlock);
     bm.UnLock(pNewBlock);  //解锁
@@ -601,28 +586,31 @@ void  BPTree<T>::_insert(T newkey,OffsetType newoffset)
    
     
 #ifdef OUTPUT
-    cout<<"Split "<<pBlock->Offset<<endl;
-    cout<<"left: id="<<node.id<<" "<<endl;
+    std::cout<<"Split "<<pBlock->Offset<<std::endl;
+    std::cout<<"left: id="<<node.id<<" "<<std::endl;
     printNode(pBlock);
-    cout<<"Parent="<<node.getParent()<<endl;
-    cout<<"right: id="<<newNode.id<<" "<<endl;;
+    std::cout<<"Parent="<<node.getParent()<<std::endl;
+    std::cout<<"right: id="<<newNode.id<<" "<<std::endl;;
     printNode(pNewBlock);
-    cout<<"Parent="<<newNode.getParent()<<endl;
+    std::cout<<"Parent="<<newNode.getParent()<<std::endl;
 #endif
 
     pBlock = bm.GetBlock(indexName,node.getParent());
 
     insert_in_internal(pBlock, upperkey, node.id, newNode.id);
 #ifdef OUTPUT
-    cout<<"in parent node: ";
+    std::cout<<"in parent node: ";
     printNode(pBlock);
 #endif
     
+    // 父结点
     node.attachTo(pBlock);
     bm.SetWritten(pBlock);
     bm.SetLock(pBlock);
 
     Block* parent = NULL;
+
+    // 级联更新
     while(node.getCount()==degree)
     {
         
@@ -634,9 +622,9 @@ void  BPTree<T>::_insert(T newkey,OffsetType newoffset)
 
         int splitPos = (degree)/2;
 
-        upperkey = getKey(node.pData+(splitPos)*indexSize+offsetSize);  //移到上一层节点的key
+        upperkey = getKey(node.pData+(splitPos)*indexSize+TPTR_SIZE);  //移到上一层节点的key
 
-        memcpy(newNode.pData,node.pData+(splitPos+1)*indexSize,(node.getCount()-splitPos-1)*indexSize+offsetSize);
+        memcpy(newNode.pData,node.pData+(splitPos+1)*indexSize,(node.getCount()-splitPos-1)*indexSize+TPTR_SIZE);
                    //新节点块头指针       //指向原节点分裂点右边的偏移量    //
         newNode.setCount(node.getCount()-splitPos-1);
         node.setCount(splitPos);
@@ -652,13 +640,13 @@ void  BPTree<T>::_insert(T newkey,OffsetType newoffset)
             p+=indexSize;
         }
         
-        if(node.getParent()<0)
+        if(node.getParent() == 0)
         {
             Block* pRootBlock = createNewNode();
             bm.SetWritten(pRootBlock);
 
             TreeNode newRoot(pRootBlock);
-            newRoot.setParent(-1);
+            newRoot.setParent(0);
             newRoot.setCount(0);
             newRoot.setLeaf(-1);
             root = newRoot.id;
@@ -669,7 +657,7 @@ void  BPTree<T>::_insert(T newkey,OffsetType newoffset)
             insert_in_internal(pRootBlock,upperkey,node.id,newNode.id);
             bm.UnLock(pBlock);
             bm.UnLock(pNewBlock);
-            return;
+            return true;
         }
         parent = bm.GetBlock(indexName,node.getParent());
         bm.SetWritten(parent);
@@ -686,71 +674,47 @@ void  BPTree<T>::_insert(T newkey,OffsetType newoffset)
 }
 
 
-template <class T>
-T BPTree<T>::getKey(char* p)
-{
-    
-    if(keytype==SQL_INT||keytype==SQL_FLOAT)
-    {
-        T val;
-        memcpy((char*)&val, p, keySize);
-        return val;
-    }
-    else
-    {
-        KV k;
-        k.stringKey = p;
-        T val;
-        k.assignTo(val);
-        return val;
-    }
-}
+// specialization
+template <>
+float BPTree<float>::getKey(char *p)
+{ return _cptr2float(p); }
 
-template <class T>
+template <>
+int BPTree<int>::getKey(char *p)
+{ return _cptr2int(p); }
+
+template <>
+std::string BPTree<std::string>::getKey(char *p)
+{ return std::string(p); }
+
+
+template <typename T>
 OffsetType BPTree<T>::getOffset(char* p)
-{
-    //OffsetType offset;
-    //memcpy((char*)&offset,p,offsetSize);
-    //return offset;
+{ return *(OffsetType*)p; }
 
-    return *(OffsetType*)p;
-}
 
-template <class T>
-void BPTree<T>::writeKey(char* p,T newkey)
-{
+template <typename T>
+void BPTree<T>::setKey(char* p,T newkey)
+{ memcpy(p, _data2cptr(newkey), keySize); }
     
-    if(keytype==SQL_INT)
-    {
-        memcpy(p,(char*)&newkey,keySize);
-    }
-    else if(keytype==SQL_FLOAT)
-    {
-        memcpy(p,(char*)&newkey,keySize);
-    }
-    else    //stringn
-    {
-        KV k(newkey);
-        memcpy(p, k.stringKey.c_str(),keySize);
-    }
-}
+template <>
+void BPTree<std::string>::setKey(char *p, std::string newkey)
+{ memcpy(p, newkey.c_str(), keySize); }
 
 
-template <class T>
-void BPTree<T>::writeOffset(char* p,OffsetType newoffset)
-{
-    memcpy(p,(char*)&newoffset,offsetSize);
-}
+template <typename T>
+void BPTree<T>::setOffset(char* p, OffsetType newtupleptr)
+{ memcpy(p,_data2cptr(newtupleptr), TPTR_SIZE); }
 
 
-template <class T>
-bool BPTree<T>::searchBlock(Block* pBlock,T key,SR& sr)
+template <typename T>
+bool BPTree<T>::searchBlock(Block* pBlock,T key,NodeSearchParse& res)
 {
     TreeNode node(pBlock);
     int i=0;
     int j = node.getCount()-1;
     int middle = 0;
-    sr.isFound=false;
+    res.isFound=false;
     while(i<=j)
     {
         middle = (i+j)>>1;
@@ -760,41 +724,34 @@ bool BPTree<T>::searchBlock(Block* pBlock,T key,SR& sr)
         else if(val<key)
             i = middle + 1;
         else if(val==key)  {
-            sr.isFound=true;
+            res.isFound=true;
             break;
         }
     }
-    sr.indexName = indexName;
-    sr.blockOffset = node.id;
-    sr.tupleOffset = getOffset(node.pData+indexSize*middle+keySize);
-    sr.offsetInNode = middle*indexSize;
-    return sr.isFound;
+    res.indexName = indexName;
+    res.blockOffset = node.id;
+    res.tupleOffset = getOffset(node.pData+indexSize*middle+keySize);
+    res.offsetInNode = middle*indexSize;
+    return res.isFound;
 }
 
 
-template <class T>
-bool BPTree<T>::_delete(T oldkey)
-{/*
-    Block* proot = bm.GetBlock(indexName,root);
-    TreeNode no(proot);
-    size_t o;
-    if(1!=(o=getOffset(proot->data))&&no.isLeaf()<0)
-        cout<<"Error"<<o<<endl<<endl;
-    
-    */
+template <typename T>
+bool BPTree<T>::_delete(const T &oldkey)
+{
     int minLeafNum = degree/2;
     Block* pBlock = getKeyNode(oldkey);
-    SR sr;
-    if(false==searchBlock(pBlock,oldkey,sr))
+    NodeSearchParse res;
+    if(false==searchBlock(pBlock,oldkey,res))
     {
         //printNode(pBlock);
-        cout<<"No this key:"<<oldkey<<endl;
+        std::cerr<<"ERROR::NO SUCH KEY!"<<oldkey<<std::endl;
         return false;
     }
     Changed = true;
 #ifdef TEST_DELETE
-    cout<<"find key: "<<oldkey<<endl;
-    sr.printSR();
+    std::cout<<"find key: "<<oldkey<<std::endl;
+    res.printNSP();
 #endif
     TreeNode node(pBlock);
     bm.SetWritten(pBlock);
@@ -808,7 +765,7 @@ bool BPTree<T>::_delete(T oldkey)
 
             return true;
         }
-        char* p = node.pData+sr.offsetInNode;
+        char* p = node.pData+res.offsetInNode;
         char* end = node.pData+(node.getCount()-1)*indexSize;
         while(p<end)
         {
@@ -820,7 +777,7 @@ bool BPTree<T>::_delete(T oldkey)
     }
     if(node.getCount()>minLeafNum)
     {
-        char* p = node.pData+sr.offsetInNode;
+        char* p = node.pData+res.offsetInNode;
         char* end = node.pData+(node.getCount()-1)*indexSize;
         while(p<end)
         {
@@ -829,20 +786,13 @@ bool BPTree<T>::_delete(T oldkey)
         }
         node.decreaseCount(1);
 #ifdef TEST_DELETE
-        cout<<"OK"<<endl;
+        std::cout<<"OK"<<std::endl;
         printNode(pBlock);
 #endif
-        /*
-        ////////!!!!!!!!!!!!
-        proot = bm.GetBlock(indexName,root);
-        no.attachTo(proot);
-        if(1!=(o=getOffset(proot->data))&&no.isLeaf()<0)
-            cout<<"Error!!!!!"<<o<<endl<<endl;
-        else cout<<o<<endl;*/
         return true;
     }
 #ifdef TEST_DELETE
-    cout<<"Block "<<node.id<<" Need to adjust"<<endl;
+    std::cout<<"Block "<<node.id<<" Need to adjust"<<std::endl;
     printNode(pBlock);
 #endif
     //需要调整
@@ -851,7 +801,7 @@ bool BPTree<T>::_delete(T oldkey)
     Block* pParent = bm.GetBlock(indexName,node.getParent());   //获取父节点
     TreeNode parent(pParent);
 #ifdef TEST_DELETE
-    cout<<"Parent: "<<endl;
+    std::cout<<"Parent: "<<std::endl;
     printNode(pParent);
 #endif
     bm.SetWritten(pParent);
@@ -889,7 +839,7 @@ bool BPTree<T>::_delete(T oldkey)
         }
     }
 #ifdef TEST_DELETE
-    cout<<"Choose sibling: "<<pSibling->Offset<<endl;
+    std::cout<<"Choose sibling: "<<pSibling->Offset<<std::endl;
     printNode(pSibling);
 #endif
     if(pSibling->Offset==8)
@@ -902,7 +852,7 @@ bool BPTree<T>::_delete(T oldkey)
     {
         if(!leftSibling)    //右兄弟       // OK
         {
-            char* p = node.pData+sr.offsetInNode;
+            char* p = node.pData+res.offsetInNode;
             char* end = node.pData+(node.getCount()-1)*indexSize;
             while(p<end)
             {
@@ -921,12 +871,12 @@ bool BPTree<T>::_delete(T oldkey)
             }
             sibling.decreaseCount(1);
             
-            memcpy(parent.pData+off+offsetSize,sibling.pData,keySize);   //更新父节点key
+            memcpy(parent.pData+off+TPTR_SIZE,sibling.pData,keySize);   //更新父节点key
 
         }
         else        //OK
         {
-            char* p = node.pData + sr.offsetInNode;   //删除点前段右移
+            char* p = node.pData + res.offsetInNode;   //删除点前段右移
             char* end = node.pData;
 
             while(p>end)
@@ -942,21 +892,13 @@ bool BPTree<T>::_delete(T oldkey)
             sibling.decreaseCount(1);
             memcpy(parent.pData+off-keySize,node.pData,keySize); //更新父节点key
         }
-        /*
-        ///////////////!!!!
-        proot = bm.GetBlock(indexName,root);
-        no.attachTo(proot);
-        if(1!=(o=getOffset(proot->data))&&no.isLeaf()<0)
-            cout<<"Error!!!!!"<<o<<endl<<endl;
-        else cout<<o<<endl;
-         */
     }
     else        
     {        
         if(!leftSibling)    //ok
         {
-            pDivider = parent.pData+off+offsetSize;
-            char* p = node.pData+sr.offsetInNode;
+            pDivider = parent.pData+off+TPTR_SIZE;
+            char* p = node.pData+res.offsetInNode;
             char* end = node.pData+(node.getCount()-1)*indexSize;
             while(p<end)    //删除点右侧向前移动
             {
@@ -968,7 +910,7 @@ bool BPTree<T>::_delete(T oldkey)
             node.setLeaf(sibling.isLeaf());
             emptyList.push_back(sibling.id);
 #ifdef TEST_DELETE
-            cout<<"右节点并入左节点: "<<endl;
+            std::cout<<"右节点并入左节点: "<<std::endl;
             printNode(pBlock);
 #endif
         }
@@ -976,15 +918,15 @@ bool BPTree<T>::_delete(T oldkey)
         {
             pDivider = parent.pData+off-keySize;
             char* p = sibling.pData+sibling.getCount()*indexSize;   //左兄弟末尾
-            memcpy(p, node.pData,sr.offsetInNode);  //删除点前段
+            memcpy(p, node.pData,res.offsetInNode);  //删除点前段
 
-            memcpy(p+sr.offsetInNode,node.pData+sr.offsetInNode+indexSize,
-                (node.getCount()-1)*indexSize-sr.offsetInNode);
+            memcpy(p+res.offsetInNode,node.pData+res.offsetInNode+indexSize,
+                (node.getCount()-1)*indexSize-res.offsetInNode);
             sibling.increaseCount(node.getCount()-1);
             sibling.setLeaf(node.isLeaf());
             emptyList.push_back(node.id); //删除右节点
 #ifdef TEST_DELETE
-            cout<<"右节点并入左节点: "<<endl;
+            std::cout<<"右节点并入左节点: "<<std::endl;
             printNode(pSibling);
 #endif
         }
@@ -992,34 +934,27 @@ bool BPTree<T>::_delete(T oldkey)
         bm.UnLock(pBlock);
         bm.UnLock(pSibling);
 #ifdef TEST_DELETE
-        cout<<"Adjust Parent "<<pParent->Offset<<endl;
+        std::cout<<"Adjust Parent "<<pParent->Offset<<std::endl;
         printNode(pParent);
 #endif
 #ifdef TEST_DELETE
         T delkey = getKey(pDivider);
-        cout<<"delete :"<<delkey<<endl;
+        std::cout<<"delete :"<<delkey<<std::endl;
 #endif
         adjustAfterDelete(pParent,pDivider); //调整
     }
-    /*
-    ////////////!!!!!
-    proot = bm.GetBlock(indexName,root);
-    no.attachTo(proot);
-    if(1!=(o=getOffset(proot->data))&&no.isLeaf()<0)
-        cout<<"Error!!!!!"<<o<<endl<<endl;
-    else cout<<o<<endl;
-    */
+
     return true;
 }
 
 
-template <class T>
+template <typename T>
 void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
 {
     int minInternal = (degree-1)/2;
     TreeNode node(pNode);
     if(1!=getOffset(node.pData))
-        cout<<"Error!!!!!!"<<endl;
+        std::cerr<<"ERROR::PDATA ERROR!"<<std::endl;
     bm.SetLock(pNode);
     bm.SetWritten(pNode);
     if(node.getCount()>minInternal)
@@ -1061,7 +996,7 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
         {
             char* p = delPos;
             
-            char* end = node.pData+(node.getCount()-1)*indexSize+offsetSize;
+            char* end = node.pData+(node.getCount()-1)*indexSize+TPTR_SIZE;
             while(p<end)    //向前移动
             {
                 memcpy(p,p+indexSize,indexSize);
@@ -1094,7 +1029,7 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
     {
         pSibling = bm.GetBlock(indexName,getOffset(parent.pData+offInParent+indexSize));
         leftSibling = false;
-        pDivider = parent.pData+offInParent+offsetSize;
+        pDivider = parent.pData+offInParent+TPTR_SIZE;
     }
     else if(offInParent==parent.getCount()*indexSize)   //最后一个儿子
     {
@@ -1116,7 +1051,7 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
         {
             leftSibling = false;
             pSibling = bm.GetBlock(indexName,getOffset(parent.pData+offInParent+indexSize));
-            pDivider = parent.pData+offInParent+offsetSize;
+            pDivider = parent.pData+offInParent+TPTR_SIZE;
         }
     }
     
@@ -1125,7 +1060,7 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
     sibling.attachTo(pSibling);
 
 #ifdef TEST_DELETE
-    cout<<"sibling: "<<endl;
+    std::cout<<"sibling: "<<std::endl;
     printNode(pSibling);
 #endif
     if(sibling.getCount()>minInternal)
@@ -1133,7 +1068,7 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
         if(leftSibling) //ok
         {
             char* p = delPos;
-            char* end = node.pData+offsetSize;
+            char* end = node.pData+TPTR_SIZE;
             while(p>end)
             {
                 memcpy(p,p-indexSize,indexSize);    //删除点右边右移
@@ -1141,11 +1076,11 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
             }
 
             p+=keySize;
-            memcpy(p,p-indexSize,offsetSize);   //最左端指针
+            memcpy(p,p-indexSize,TPTR_SIZE);   //最左端指针
 
             p = sibling.pData+(sibling.getCount())*indexSize;
-            memcpy(node.pData+offsetSize,pDivider,keySize); //父节点分割的key放入节点
-            memcpy(node.pData,p,offsetSize);       //兄弟节点最右边指针加入该节点
+            memcpy(node.pData+TPTR_SIZE,pDivider,keySize); //父节点分割的key放入节点
+            memcpy(node.pData,p,TPTR_SIZE);       //兄弟节点最右边指针加入该节点
             memcpy(pDivider,p-keySize,keySize);                 //最右边key变为父节点中新的key
 
             adjustParentInfo(getOffset(node.pData),node.id);
@@ -1155,7 +1090,7 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
         else        //ok
         {
             char* p = delPos;
-            char* end = node.pData+(node.getCount()-1)*indexSize+offsetSize;
+            char* end = node.pData+(node.getCount()-1)*indexSize+TPTR_SIZE;
             while(p<end)
             {
                 memcpy(p,p+indexSize,indexSize);    //删除点右边 左移
@@ -1163,8 +1098,8 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
             }
 
             memcpy(end,pDivider,keySize);   //父节点key下移
-            memcpy(end+keySize,sibling.pData,offsetSize);       //指针加入左边
-            memcpy(pDivider,sibling.pData+offsetSize,keySize);  //右节点  最左边key上移至父节点
+            memcpy(end+keySize,sibling.pData,TPTR_SIZE);       //指针加入左边
+            memcpy(pDivider,sibling.pData+TPTR_SIZE,keySize);  //右节点  最左边key上移至父节点
 
             adjustParentInfo(getOffset(sibling.pData),node.id );
 
@@ -1175,7 +1110,7 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
                 memcpy(p,p+indexSize,indexSize);
                 p+=indexSize;
             }
-            memcpy(end,end+indexSize,offsetSize);   //最右指针
+            memcpy(end,end+indexSize,TPTR_SIZE);   //最右指针
             sibling.decreaseCount(1);
         }
     }
@@ -1184,7 +1119,7 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
         if(leftSibling) //ok
         {
             char* p = node.pData;
-            char* siblingEnd = sibling.pData+sibling.getCount()*indexSize+offsetSize;
+            char* siblingEnd = sibling.pData+sibling.getCount()*indexSize+TPTR_SIZE;
             memcpy(siblingEnd,pDivider,keySize);    //获取父节点key
             siblingEnd+=keySize;    //指向最后一个指针
             memcpy(siblingEnd,p,delPos-p);    //删除点左
@@ -1196,9 +1131,9 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
             }
 
             siblingEnd+=delPos-node.pData;
-            //int copySize = node.getCount()*indexSize+offsetSize-(delPos-node.pData)-indexSize;
+            //int copySize = node.getCount()*indexSize+TPTR_SIZE-(delPos-node.pData)-indexSize;
             p = delPos+indexSize+keySize;
-            char* end = node.getCount()*indexSize+offsetSize+node.pData;
+            char* end = node.getCount()*indexSize+TPTR_SIZE+node.pData;
             memcpy(siblingEnd,p-keySize,end-p+keySize);    //删除点右
             while(p<end)
             {
@@ -1211,7 +1146,7 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
         else    //ok
         {
             char* p = delPos;
-            char* end = node.pData+(node.getCount()-1)*indexSize+offsetSize;
+            char* end = node.pData+(node.getCount()-1)*indexSize+TPTR_SIZE;
             while(p<end)
             {
                 memcpy(p,p+indexSize,indexSize);
@@ -1222,7 +1157,7 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
             end+=keySize;
 
             p = sibling.pData;
-            char* siblingEnd = sibling.pData+sibling.getCount()*indexSize+offsetSize;
+            char* siblingEnd = sibling.pData+sibling.getCount()*indexSize+TPTR_SIZE;
             memcpy(end,sibling.pData,siblingEnd-p);     //合并入左节点
             //调整父节点
             while(p<siblingEnd)
@@ -1233,7 +1168,7 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
             emptyList.push_back(sibling.id);
             node.increaseCount(sibling.getCount());
             //T k = getKey(pDivider);
-            //cout<<k;
+            //std::cout<<k;
             //printNode(pNode);
             
         }
@@ -1241,7 +1176,7 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
         bm.UnLock(pNode);
 #ifdef TEST_DELETE
         T delkey = getKey(pDivider);
-        cout<<"delete :"<<delkey<<endl;
+        std::cout<<"delete :"<<delkey<<std::endl;
 #endif
         adjustAfterDelete(pParent,pDivider);
     }
@@ -1249,8 +1184,8 @@ void BPTree<T>::adjustAfterDelete(Block* pNode,char* delPos)
 
 }
 
-template <class T>
-void BPTree<T>::adjustParentInfo(BlockIDType id,BlockIDType newp)
+template <typename T>
+void BPTree<T>::adjustParentInfo(BlockIDType id, BlockIDType newp)
 {
     Block* pBlock=bm.GetBlock(indexName,id);
     bm.SetWritten(pBlock);
@@ -1259,8 +1194,8 @@ void BPTree<T>::adjustParentInfo(BlockIDType id,BlockIDType newp)
 }
 
 
-template <class T>
-int BPTree<T>::searchSon(TreeNode& parent,BlockIDType id)
+template <typename T>
+int BPTree<T>::searchSon(TreeNode& parent, const BlockIDType id)
 {
     parent.reset();
     char* p = parent.pData;
@@ -1271,13 +1206,13 @@ int BPTree<T>::searchSon(TreeNode& parent,BlockIDType id)
     return (p-parent.pData);
 }
 
-template <class T>
+template <typename T>
 void BPTree<T>::init(void)
 {
     FILE* fp = fopen(indexName.c_str(), "w+");
     if(fp==NULL)
     {
-        cout<<"File Create Error"<<endl;
+        std::cout<<"File Create Error"<<std::endl;
     }
     fclose(fp);
 
@@ -1289,7 +1224,7 @@ void BPTree<T>::init(void)
     head.setNodeNum(1);   //NodeNumber
     head.setRoot(1);  //root node id
     head.setFirstLeaf(1);    //first Leaf id
-    head.setKeyType(keytype);
+    head.setKeySize(keySize);
     nodeNum = 1;
     root = 1;
     firstLeaf = 1;
@@ -1298,28 +1233,28 @@ void BPTree<T>::init(void)
     emptyList.clear();
 
     head.setEmptyBlockList(emptyList);
-    //cout<<*(node.pCount)<<" "<<*(node.pParent)<<endl;
+    //std::cout<<*(node.pCount)<<" "<<*(node.pParent)<<std::endl;
     
     Block* pBlock = bm.GetNewBlock(indexName,1);
     TreeNode node(pBlock);
     bm.SetWritten(pBlock);
     node.attachTo(pBlock);
     node.setCount(0);
-    node.setParent(-1);
+    node.setParent(0);
     node.setLeaf(0);
     Changed = false;
 }
 
-template <class T>
-bool BPTree<T>::_modify(T oldkey,T newkey,OffsetType newoffset)
+template <typename T>
+bool BPTree<T>::_modify(const T &oldkey, const T &newkey, const TuplePtr &newtupleptr)
 {
     Block* pBlock = getKeyNode(oldkey);
     bm.SetWritten(pBlock);
     TreeNode node(pBlock);
-    SR sr;
-    if(!searchBlock(pBlock,oldkey,sr)) return false;
+    NodeSearchParse res;
+    if(!searchBlock(pBlock,oldkey,res)) return false;
     Changed = true;
-    char* p = sr.offsetInNode+node.pData;
+    char* p = res.offsetInNode+node.pData;
     char* end = node.pData+(node.getCount()-1)*indexSize;
     T l = getKey(node.pData);
     T r = getKey(end);
@@ -1332,8 +1267,8 @@ bool BPTree<T>::_modify(T oldkey,T newkey,OffsetType newoffset)
                 memcpy(p,p+indexSize,indexSize);
                 p+=indexSize;
             }
-            writeKey(p,newkey);
-            writeOffset(p+keySize,newoffset);
+            setKey(p,newkey);
+            setOffset(p+keySize,newtupleptr);
         }
         else
         {
@@ -1342,19 +1277,19 @@ bool BPTree<T>::_modify(T oldkey,T newkey,OffsetType newoffset)
                 memcpy(p,p-indexSize,indexSize);
                 p-=indexSize;
             }
-            writeKey(p,newkey);
-            writeOffset(p+keySize,newoffset);
+            setKey(p,newkey);
+            setOffset(p+keySize,newtupleptr);
         }
         return true;
     }
 
     _delete(oldkey);
    // showLeaf();
-    _insert(newkey,newoffset);
+    _insert(newkey,newtupleptr);
     //showLeaf();
     return true;
 }
-template <class T>
+template <typename T>
 Block* BPTree<T>::createNewNode(void)
 {
     Block* pBlock;
@@ -1374,16 +1309,16 @@ Block* BPTree<T>::createNewNode(void)
 }
 
 
-template <class T>
-OffsetType BPTree<T>::_search(T key)
+template <typename T>
+OffsetType BPTree<T>::_search(const T &key)
 {
     Block* pBlock = getKeyNode(key);
     return block_search(pBlock,key);
 }
 
 
-template <class T>
-OffsetType BPTree<T>::block_search(Block* pBlock,T key)
+template <typename T>
+OffsetType BPTree<T>::block_search(const Block* pBlock, const T &key)
 {
     TreeNode node(pBlock);
 
@@ -1404,12 +1339,12 @@ OffsetType BPTree<T>::block_search(Block* pBlock,T key)
             return getOffset(node.pData+middle*indexSize+keySize)+1;
         }
     }
-    return 0;
+    return NONE;
 }
 
 
-template <class T>
-void BPTree<T>::writeToDisk()
+template <typename T>
+void BPTree<T>::writeBack()
 {
     Block* pHead = bm.GetBlock(indexName, 0);
     bm.SetWritten(pHead);
@@ -1418,37 +1353,24 @@ void BPTree<T>::writeToDisk()
     head.setNodeNum(nodeNum);   //NodeNumber
     head.setRoot(root);  //root node id
     head.setFirstLeaf(firstLeaf);    //first Leaf id
-    head.setKeyType(keytype);
+    head.setKeySize(keySize);
 
     head.setEmptyBlockList(emptyList);
     Changed = false;
-    //cout<<*(node.pCount)<<" "<<*(node.pParent)<<endl;
+    //std::cout<<*(node.pCount)<<" "<<*(node.pParent)<<std::endl;
 }
 
 
-template <class T>
-void BPTree<T>::createNewFile(string filename,SqlValueType type)
+template <typename T>
+void BPTree<T>::createNewFile(const std::string &filename, int keySize)
 {
     if(Changed==true)
-        writeToDisk();
+        writeBack();
 
     indexName = filename;
-    keytype = type;
+    this->keySize = keySize;
 
-    offsetSize = sizeof(OffsetType);
-    if(type==SQL_INT)
-    {   
-        keySize = sizeof(int);
-    }
-    else if(type==SQL_FLOAT)
-    {
-        keySize = sizeof(float);
-    }
-    else 
-    {
-        keySize = keytype + 1;
-    }
-    indexSize = keySize+offsetSize;
+    indexSize = keySize+TPTR_SIZE;
     degree = (BLOCKSIZE-sizeof(OffsetType)-sizeof(int)*3)/(indexSize) - 2;
 
     root = 1;
@@ -1458,7 +1380,8 @@ void BPTree<T>::createNewFile(string filename,SqlValueType type)
     FILE* fp = fopen(filename.c_str(), "w");
     if(fp==NULL)
     {
-        cout<<"File Create Error"<<endl;
+        std::cerr<<"ERROR::CANNOT OPEN FILE!"<<std::endl;
+        exit(-1);
     }
     fclose(fp);
 
@@ -1469,86 +1392,79 @@ void BPTree<T>::createNewFile(string filename,SqlValueType type)
     head.setNodeNum(1);   //NodeNumber
     head.setRoot(1);  //root node id
     head.setFirstLeaf(1);    //first Leaf id
-    head.setKeyType(keytype);
+    head.setKeySize(keySize);
 
     emptyList.clear();
     head.setEmptyBlockList(emptyList);
-    //cout<<*(node.pCount)<<" "<<*(node.pParent)<<endl;
+    //std::cout<<*(node.pCount)<<" "<<*(node.pParent)<<std::endl;
     
     Block* pBlock = bm.GetNewBlock(filename,1);
     TreeNode node(pBlock);
     bm.SetWritten(pBlock);
     node.setCount(0);
-    node.setParent(-1);
+    node.setParent(0);
     node.setLeaf(0);
 }
 
 
-template <class T>
-void BPTree<T>::readFromFile(string filename)
+template <typename T>
+void BPTree<T>::readFromFile(const std::string &filename)
 {
     if(indexName==filename)
     {
         return;
     }
     else if(Changed==true)
-        writeToDisk();
+        writeBack();
 
     indexName = filename;
-    offsetSize = sizeof(OffsetType);
+    TPTR_SIZE = sizeof(OffsetType);
 
     Block* pHead = bm.GetBlock(filename,0);
    // bm.SetWritten(pHead);
 
     IndexHead head(pHead);
-    keytype = head.getKeyType();
+    keySize = head.getKeySize();
     root = head.getRoot();
     firstLeaf = head.getFirstLeaf();
     nodeNum = head.getNodeNum();
 
-    if(keytype==SQL_INT)
-    {   
-        keySize = sizeof(int);
-    }
-    else if(keytype==SQL_FLOAT)
-    {
-        keySize = sizeof(float);
-    }
-    else 
-    {
-        keySize = keytype + 1;
-    }
-    indexSize = keySize+offsetSize;
+    indexSize = keySize+TPTR_SIZE;
     degree = (BLOCKSIZE-sizeof(OffsetType)-sizeof(int)*3)/(indexSize) - 2;
     head.getEmptyBlockList(emptyList);
 }
 
-template <class T>
-void BPTree<T>::_drop(string filename)
+template <typename T>
+bool BPTree<T>::_drop(const std::string &indexName)
 {
-    FILE* fp = fopen(filename.c_str(), "w");
+    FILE* fp = fopen(indexName.c_str(), "w");
     if(fp==NULL)
     {
-        cout<<"File Create Error"<<endl;
+        std::cerr<<"ERROR::CANNOT OPEN FILE!"<<std::endl;
+        return false;
     }
     fclose(fp);
     Changed = false;
     indexName = "";
+    return true;
 }
 
-template <class T>
-void BPTree<T>::_release(void)
+template <typename T>
+bool BPTree<T>::_release(void)
 {
     Changed = false;
     indexName = "";
+    return true;
 }
 
-template <class T>         //0:=  1:>  2:< 3:>=  4:<= 5 :<>, !!!-1 disable
-bool BPTree<T>::range_search(T lower_bound,int Op1,T upper_bound,int Op2,list<OffsetType>& offsetList)
+template <typename T>         //0:=  1:>  2:< 3:>=  4:<= 5 :<>, !!!-1 disable
+bool BPTree<T>::range_search(const T lvalue, const int lclosed, 
+                      const T rvalue, const int rclosed,
+                      std::vector<TuplePtr>& tuplePtrs)
 {
-    if(Op1>0&&Op2>0)
+    if(lclosed>0&&rclosed>0)
     {
-        Block* pBlock = getKeyNode(lower_bound);
+        Block* pBlock = getKeyNode(lvalue);
         TreeNode node;
         BlockIDType bid = pBlock->Offset;
         while(bid>0)
@@ -1558,7 +1474,7 @@ bool BPTree<T>::range_search(T lower_bound,int Op1,T upper_bound,int Op2,list<Of
             char* end = node.pData+indexSize*(node.getCount()-1);
             
             T val;
-            while((val=getKey(p))<lower_bound&&p<=end)
+            while((val=getKey(p))<lvalue&&p<=end)
             {
                 p+=indexSize;
             }
@@ -1569,9 +1485,9 @@ bool BPTree<T>::range_search(T lower_bound,int Op1,T upper_bound,int Op2,list<Of
                 continue;
             }
             //找到第一个大于等于
-            while(p<=end&&(val=getKey(p))<=upper_bound)
+            while(p<=end&&(val=getKey(p))<=rvalue)
             {
-                offsetList.push_back(getOffset(p+keySize));
+                tuplePtrs.push_back(getOffset(p+keySize));
                 p+=indexSize;
             }
             if(p>end)
@@ -1587,9 +1503,9 @@ bool BPTree<T>::range_search(T lower_bound,int Op1,T upper_bound,int Op2,list<Of
         }
         
     }
-    else if(Op1>0&&Op2<=0)
+    else if(lclosed>0&&rclosed<=0)
     {
-        Block* pBlock = getKeyNode(lower_bound);
+        Block* pBlock = getKeyNode(lvalue);
         TreeNode node;
         BlockIDType bid = pBlock->Offset;
         while(bid>0)
@@ -1599,7 +1515,7 @@ bool BPTree<T>::range_search(T lower_bound,int Op1,T upper_bound,int Op2,list<Of
             char* end = node.pData+indexSize*(node.getCount()-1);
             
             T val;
-            while((val=getKey(p))<lower_bound&&p<=end)
+            while((val=getKey(p))<lvalue&&p<=end)
             {
                 p+=indexSize;
             }
@@ -1613,7 +1529,7 @@ bool BPTree<T>::range_search(T lower_bound,int Op1,T upper_bound,int Op2,list<Of
             //找到第一个大于等于
             while(p<=end)
             {
-                offsetList.push_back(getOffset(p+keySize));
+                tuplePtrs.push_back(getOffset(p+keySize));
                 p+=indexSize;
             }
             if(p>end)
@@ -1624,7 +1540,7 @@ bool BPTree<T>::range_search(T lower_bound,int Op1,T upper_bound,int Op2,list<Of
             }
         }
     }
-    else if(Op1<=0&&Op2>0)
+    else if(lclosed<=0&&rclosed>0)
     {
         Block* pBlock = bm.GetBlock(indexName, firstLeaf);
         TreeNode node;
@@ -1635,9 +1551,9 @@ bool BPTree<T>::range_search(T lower_bound,int Op1,T upper_bound,int Op2,list<Of
             char* p = node.pData;;
             char* end = node.pData+indexSize*(node.getCount()-1);
             T val;
-            while((val=getKey(p))<=upper_bound&&p<=end)
+            while((val=getKey(p))<=rvalue&&p<=end)
             {
-                offsetList.push_back(getOffset(p+keySize));
+                tuplePtrs.push_back(getOffset(p+keySize));
                 p+=indexSize;
             }
             if(p>end)
