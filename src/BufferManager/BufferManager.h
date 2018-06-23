@@ -10,6 +10,15 @@
 #include <iostream>
 #include <string>
 using namespace std;
+typedef struct
+{
+	string FileName;	//buffer中block所属文件文件名，""为当前block为空
+	int Offset;			//是文件中的第几个block
+	char* data;			//指向block数据
+	bool IsAccessed;	//block是否被访问
+	bool IsWritten;		//block是否被写过
+	bool IsLocked;		//block是否被锁定
+}Block;
 
 class BufferManager
 {

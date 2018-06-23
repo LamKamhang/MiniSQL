@@ -1,5 +1,5 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
-#include "BufferManager1.h"
+#include "BufferManager.h"
 void BufferManager::InitBlock(Block* CurrBlock)
 {
 	CurrBlock->Offset = -1;		//-1表示未使用
