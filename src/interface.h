@@ -33,9 +33,11 @@ namespace MINISQL_BASE {
     extern const int MaxBlocks;
 
     typedef unsigned int BlockIDType;
-    typedef BlockIDType OffsetType;
+    typedef struct TuplePtr OffsetType;
 
     enum{INT_SIZE = sizeof(int)};
+    enum{FLOAT_SIZE = sizeof(float)};
+    // enum{TPTR_SIZE = sizeof(MINISQL_BASE::TulpePtr)};//在下面定义了
 
     #define NONE    (TuplePtr(-1, -1))
 
@@ -323,9 +325,56 @@ namespace MINISQL_BASE {
        {
            return blockID == rhs.blockID && offset == rhs.offset;
        }
+       bool operator !=(const TuplePtr &rhs)
+       {
+           return blockID != rhs.blockID || offset != rhs.offset;
+       }
        bool operator !()
        {
            return (*this == NONE);
        }
    };
+   enum{TPTR_SIZE = sizeof(MINISQL_BASE::TuplePtr)};
+
+   class condition
+    {
+    public:
+        std::string attributeName;
+        SqlValueType type;
+        Operator oprt;
+        int intValue;
+        float floatValue;
+        std::string stringValues;
+    };
+
+class miniRecord
+{
+public:
+	condition cond[32];//记录内容 
+	int conditionNum;//属性数目 
+	int pos;//所在块的偏移 
+	int blockNum;//所在块的编号 
+};
+
+class attribute
+{
+public:
+    std::string name;
+	SqlValueType type;
+	int length;
+	bool primary;
+	bool unique;
+	bool index;
+};
+
+class records
+{
+public:
+	int attriNum;//属性的个数
+	std::vector<attribute> attributes;//属性信息
+	int recordNum;//记录的个数
+	std::vector<miniRecord> list;//记录的数据
+};
+
+
 }
