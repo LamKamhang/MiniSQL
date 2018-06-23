@@ -46,7 +46,7 @@ bool CatalogManager::readTableFile()
 						if (strDest[i] == "int")
 						{
 							a.type = INT;
-							a.length = 4;
+							a.length = sizeof(int);	// 4 --> sizeof(int), 可兼容，并不是所有的int都一定是4
 						}
 						if (strDest[i] == "char")
 						{
@@ -56,7 +56,7 @@ bool CatalogManager::readTableFile()
 						if (strDest[i] == "float")
 						{
 							a.type = FLOAT;
-							a.length = 8;
+							a.length = sizeof(float);// 8--> sizeof(float), 同理
 						}
 						if (strDest[i] == "unique")
 						{
