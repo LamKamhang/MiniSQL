@@ -138,7 +138,7 @@ private:
 	 * -------------------------------------------
 	 * 内部函数，用来更新im当前的私有成员变量
 	 */ 
-    void GetBPTree(std::string indexName, SqlValueType type);
+	bool GetBPTree(const std::string &indexName, SqlValueType type);
 
     BPTree<int> *intBPTree;
     BPTree<float> *floatBPTree;

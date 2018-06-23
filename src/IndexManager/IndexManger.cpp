@@ -19,6 +19,7 @@
  * 这样的好处是：减小操作增加对构造和析构的开销
  * 更好的操作是BPTree做一个map，但这样对内存大小控制较难
  */
+#include "IndexManger.h"
 IndexManager::IndexManager(BufferManager& bm):
     bm(bm)
 {
@@ -31,11 +32,11 @@ IndexManager::~IndexManager()
 {
     // 析构自动写
     if(intBPTree->isChanged())
-        intBPTree->wiriteBack();
+        intBPTree->writeBack();
     if(floatBPTree->isChanged())
-        floatBPTree->wiriteBack();
+        floatBPTree->writeBack();
     if(stringBPTree->isChanged())
-        stringBPTree->wiriteBack();
+        stringBPTree->writeBack();
    
     delete intBPTree;
     delete floatBPTree;
@@ -78,16 +79,21 @@ bool IndexManager::_select(const std::string &indexName, const condition &cond, 
 {
     tuplePtrs.clear();
     SqlValueType type = cond.type;
+    TuplePtr tmp;
     GetBPTree(indexName, type);
     switch(cond.oprt)
     {
         case EQ:
             switch(type)
             {
-                case Integer:   tuplePtrs.push_back(intBPTree->_search(cond.intValue));    break;
-                case Float:     tuplePtrs.push_back(floatBPTree->_search(cond.floatValue));  break;
-                case String:    tuplePtrs.push_back(stringBPTree->_search(cond.stringValues)); break;
-            }
+                case Integer:   tmp = intBPTree->_search(cond.intValue);    
+                std::cout << cond.intValue << std::endl;
+                break;
+                case Float:     tmp = floatBPTree->_search(cond.floatValue);  break;
+                case String:    tmp = stringBPTree->_search(cond.stringValues); break;
+            }         
+            if (tmp != NONE)
+                tuplePtrs.push_back(tmp);
             break;
         case LE:
         case GE:
@@ -161,6 +167,16 @@ public:
 	int pos;//所在块的偏移 
 	int blockNum;//所在块的编号 
 }
+
+class attribute
+{
+    string name;
+	int type;
+	int length;
+	bool primary;
+	bool unique;
+	bool index;
+}
 */
 bool IndexManager::_create(const std::string &indexName, const records &values, int index)
 {
@@ -174,25 +190,27 @@ bool IndexManager::_create(const std::string &indexName, const records &values, 
     fclose(fp);
 
     SqlValueType type = values.attributes[index].type;
+    int size = values.attributes[index].length;
     const std::vector<miniRecord> &_list = values.list;
+    
     switch(type)
     {
         case Integer:   
-            intBPTree->createNewFile(indexName, type);  
+            intBPTree->_create(indexName, size);  
             for (int i = 0; i < values.recordNum; ++i)
             {
                 intBPTree->_insert(_list[i].cond[index].intValue, TuplePtr((unsigned int)(_list[i].blockNum), (unsigned int)(_list[i].pos)));
             }
             break;
         case Float:     
-            floatBPTree->createNewFile(indexName, type);
+            floatBPTree->_create(indexName, size);
             for (int i = 0; i < values.recordNum; ++i)
             {
                 floatBPTree->_insert(_list[i].cond[index].floatValue, TuplePtr((unsigned int)(_list[i].blockNum), (unsigned int)(_list[i].pos)));
             }
             break;
         case String:    
-            stringBPTree->createNewFile(indexName, type);
+            stringBPTree->_create(indexName, size);
             for (int i = 0; i < values.recordNum; ++i)
             {
                 stringBPTree->_insert(_list[i].cond[index].stringValues, TuplePtr((unsigned int)(_list[i].blockNum), (unsigned int)(_list[i].pos)));
@@ -216,22 +234,20 @@ bool IndexManager::_drop(const std::string &indexName)
 
     // release any block about the file
     bm.DeleteFileBlock(indexName);
-    // delete file in the disk!
-    remove(filename.c_str());
 
     // update BPTree info to avoid rewrite into disk. 
     if (intBPTree->indexName == indexName)
-        intBPTree->_release();
+        intBPTree->_drop();
     else if(floatBPTree->indexName == indexName)
-        floatBPTree->_release();
+        floatBPTree->_drop();
     else if (stringBPTree->indexName == indexName)
-        stringBPTree->_release();
+        stringBPTree->_drop();
     
     return true;
 }
 
 // private function.
-void IndexManager::GetBPTree(std::string indexName, SqlValueType type)
+bool IndexManager::GetBPTree(const std::string &indexName, SqlValueType type)
 {  
     switch(type)
     {
