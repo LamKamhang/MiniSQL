@@ -112,7 +112,7 @@ miniStatement miniInterpreter(char* in)
 			else
 			{
 				int posFrom = -1;
-				// µ±Ñ¡Ôñ²»ÊÇÈ«²¿ÊôĞÔµÄÊ±ºò ¼´²»ÊÇ*µÄÇé¿ö
+				// å½“é€‰æ‹©ä¸æ˜¯å…¨éƒ¨å±æ€§çš„æ—¶å€™ å³ä¸æ˜¯*çš„æƒ…å†µ
 				for (int j = 0; j < split.size(); j++)
 				{
 					if (split[j] == "from")
@@ -357,7 +357,7 @@ miniStatement miniInterpreter(char* in)
 	{
 		if (split[1] == "table")
 		{
-			if (split[split.size() - 1] != ";")	//ÅĞ¶ÏÓĞÃ»ÓĞ·ÖºÅ½áÎ²
+			if (split[split.size() - 1] != ";")	//åˆ¤æ–­æœ‰æ²¡æœ‰åˆ†å·ç»“å°¾
 			{
 				SQL.flag = ERROR;
 				cout<<"Error! Check your input, please!"<<endl;
@@ -365,7 +365,7 @@ miniStatement miniInterpreter(char* in)
 			}
 			else
 			{
-				if (cm.isTable(split[2]))	  //¼ì²é±íÃûÊÇ·ñÒÑ¾­´æÔÚ
+				if (cm.isTable(split[2]))	  //æ£€æŸ¥è¡¨åæ˜¯å¦å·²ç»å­˜åœ¨
 				{
 					SQL.flag = ERROR;
 					cout<<"Error! Check your input, please!"<<endl;
@@ -376,7 +376,7 @@ miniStatement miniInterpreter(char* in)
 					SQL.flag = CREATETABLE;
 					SQL.MiniCreateTable.tableName = split[2];
 					SQL.MiniCreateTable.attributeNum = 0;
-					vector<string> primary;		//ÓÃÓÚ¼ÇÂ¼ÊôĞÔÃû£¬±ãÓÚÖ÷¼üµÄboolÖµĞ´Èë
+					vector<string> primary;		//ç”¨äºè®°å½•å±æ€§åï¼Œä¾¿äºä¸»é”®çš„boolå€¼å†™å…¥
 					int j = 0;
 					for (int k = 3; k < split.size()-1; k++)
 					{					
