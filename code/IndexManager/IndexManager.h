@@ -70,8 +70,9 @@ public:
 	 * 						 rvalue的值为10， rclosed为1
 	 * 需要注意的是，我这里的接口设计不是太友好，需要必须从小往大的排列，
 	 * 左值小于右值。而且由于condition没有定义一个空值，所以这个接口只能使用确切两个条件的情况下。
+	 * 已经实现
  	 */
-	bool range_select(const std::string &indexName, const condition &lvalue, int lclosed, const condition &rvalue, int rclosed, std::vector<TuplePtr> &tuplePtrs);
+	bool range_select(const std::string &indexName, const condition &lvalue, bool lclosed, const condition &rvalue, bool rclosed, std::vector<TuplePtr> &tuplePtrs);
 	
 	// 其他接口形式待商榷 
     //bool range_select(const std::string &indexName, ...)

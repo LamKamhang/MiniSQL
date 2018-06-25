@@ -1,15 +1,17 @@
 ﻿/*
  * File: IndexManager.h
- * Version: 1.2
+ * Version: 1.3
  * Author: kk
  * Created Date: Sat Jun 16 01:07:47 DST 2018
  * Modified Date: Thu Jun 21 21:06:52 DST 2018
  * Modified Date: Fri Jun 22 20:41:49 DST 2018
+ * Modified Date: Mon Jun 25 20:29:31 DST 2018
  * -------------------------------------------
  * miniSQL的IndexManager的类头文件声明
  * version 1.0: 基本操作的实现
  * version 1.1: 修改了select 以及 delete的接口，使得能够判断异常状态
  * version 1.2: 再次修正delete的接口，避免提前删除数据
+ * version 1.3: 补充了选择语句的条件形式。
  */
 
 /*
@@ -87,26 +89,105 @@ bool IndexManager::_select(const std::string &indexName, const condition &cond, 
     GetBPTree(indexName, type);
     switch(cond.oprt)
     {
+/*+-----------------------------------------------------------------+
+ *+                          case 1: EQUAL                          +
+ *+-----------------------------------------------------------------+*/
         case EQ:
             switch(type)
             {
-                case Integer:   tmp = intBPTree->_search(cond.intValue);    
-                std::cout << cond.intValue << std::endl;
-                break;
+                case Integer:   tmp = intBPTree->_search(cond.intValue);      break;
                 case Float:     tmp = floatBPTree->_search(cond.floatValue);  break;
                 case String:    tmp = stringBPTree->_search(cond.stringValues); break;
             }         
             if (tmp != NONE)
                 tuplePtrs.push_back(tmp);
             break;
+/*+-----------------------------------------------------------------+*
+ *+                         case 2: LESS EQUAL                      +*
+ *+-----------------------------------------------------------------+*/
         case LE:
+            switch(type)
+            {
+                case Integer:   tuplePtrs = intBPTree->l_search(cond.intValue, true);   break;
+                case Float:     tuplePtrs = floatBPTree->l_search(cond.floatValue, true);   break;
+                case String:    tuplePtrs = stringBPTree->l_search(cond.stringValues, true);   break;
+            }
+            break;
+/*+-----------------------------------------------------------------+*
+ *+                        case 3: GREAT EQUAL                      +*
+ *+-----------------------------------------------------------------+*/
         case GE:
+            switch(type)
+            {
+                case Integer:   tuplePtrs = intBPTree->l_search(cond.intValue, true);   break;
+                case Float:     tuplePtrs = floatBPTree->l_search(cond.floatValue, true);   break;
+                case String:    tuplePtrs = stringBPTree->l_search(cond.stringValues, true);   break;
+            }
+            break;
+/*+-----------------------------------------------------------------+*
+ *+                          case 4: LESS THAN                      +*
+ *+-----------------------------------------------------------------+*/            
         case LT:
+            switch(type)
+            {
+                case Integer:   tuplePtrs = intBPTree->l_search(cond.intValue);   break;
+                case Float:     tuplePtrs = floatBPTree->l_search(cond.floatValue);   break;
+                case String:    tuplePtrs = stringBPTree->l_search(cond.stringValues);   break;
+            }
+            break;
+/*+-----------------------------------------------------------------+*
+ *+                         case 5: GREAT THAN                      +*
+ *+-----------------------------------------------------------------+*/            
         case GT:
+            switch(type)
+            {
+                case Integer:   tuplePtrs = intBPTree->g_search(cond.intValue);   break;
+                case Float:     tuplePtrs = floatBPTree->g_search(cond.floatValue);   break;
+                case String:    tuplePtrs = stringBPTree->g_search(cond.stringValues);   break;
+            }
+            break;
         case NE:
         default: return false;
     }
 
+    return true;
+}
+
+bool IndexManager::range_select(const std::string &indexName, const condition &lvalue, bool lclosed, 
+                            const condition &rvalue, bool rclosed, std::vector<TuplePtr> &tuplePtrs)
+{
+    if (lvalue.type == rvalue.type)
+    {
+        switch(lvalue.type)
+        {
+            case Integer:   
+                if(lvalue.intValue < rvalue.intValue)
+                {
+                    tuplePtrs = intBPTree->range_search(lvalue.intValue, rvalue.intValue, lclosed, rclosed);
+                } 
+                break;
+            case Float:     
+                if(lvalue.floatValue < rvalue.floatValue)
+                {
+                    tuplePtrs = floatBPTree->range_search(lvalue.floatValue, rvalue.floatValue, lclosed, rclosed);
+                } 
+                break;
+            case String:    
+                if(lvalue.stringValues < rvalue.stringValues)
+                {
+                    tuplePtrs = stringBPTree->range_search(lvalue.stringValues, rvalue.stringValues, lclosed, rclosed);
+                } 
+                break;
+            default:
+                std::cerr << "ERROR::TYPE ERROR" << std::endl;
+                return false;
+        }
+    }
+    else
+    {
+        std::cerr << "ERROR::TYPE NOT MATCH!" << std::endl;
+        return false;
+    }
     return true;
 }
 

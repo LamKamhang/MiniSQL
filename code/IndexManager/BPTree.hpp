@@ -1,6 +1,6 @@
 ﻿/*
  * File: BPTree.hpp
- * Version: 1.5
+ * Version: 1.6
  * Author: kk
  * Created Date: Sat Jun  2 20:04:21 DST 2018
  * Modified Date: Mon Jun 11 22:37:24 DST 2018
@@ -8,6 +8,7 @@
  * Modified Date: Sat Jun 16 01:07:47 DST 2018
  * Modified Date: Tue Jun 19 16:53:17 DST 2018
  * Modified Date: Sat Jun 23 17:21:37 DST 2018
+ * Modified Date: Mon Jun 25 20:29:31 DST 2018
  * -------------------------------------------
  * miniSQL的IndexManager需要用到的数据结构B+树定义
  * 实现B+树的基本操作，插入，删除，合并，分裂
@@ -17,6 +18,7 @@
  * version 1.4 无法修正remove的bug，对BPTree进行重构，
  *             结合bufferManager进行磁盘读写
  * version 1.5 修正了删除最后一个结点时，index头信息的丢失bug
+ * version 1.6 增加了区间搜索功能，更快速
  */
 
 #pragma once
@@ -290,10 +292,14 @@ public:
     // find the key in some block.
     TuplePtr block_search(Block* pBlock, const T &key);
 
-    // have some problems.
-    bool range_search(const T lvalue, const int lclosed, 
-                      const T rvalue, const int rclosed,
-                      std::vector<TuplePtr>& tuplePtrs);
+    // find the keys that less than or less equal than the search key.
+    std::vector<TuplePtr> l_search(const T &key, bool isClosed = false);
+
+    // find the keys that great than or greate equal than the search key.
+    std::vector<TuplePtr> g_search(const T &key, bool isClosed = false);
+
+    std::vector<TuplePtr> range_search(const T lvalue, const T rvalue, 
+                                    bool lClosed = false, bool rClosed = false);
 
     // delete the bptree and remove the file in file system.
     bool _drop(void);
@@ -1571,6 +1577,230 @@ OffsetType BPTree<T>::block_search(Block* pBlock, const T &key)
 }
 
 /*
+ * function: l_search
+ * Version: 1.1
+ * Author: kk
+ * Created Date: Mon Jun 25 20:29:31 DST 2018
+ * ------------------------------------------
+ * find the keys that less than or equal the search key.
+ * version 1.1: merge lt and le together.
+ */
+template <typename T>
+std::vector<TuplePtr> BPTree<T>::l_search(const T &key, bool isClosed)
+{
+    std::vector<TuplePtr> res;
+    BlockIDType bid;
+    Block* end_block = getKeyNode(key);
+    Block* start_block = bm.GetBlock(indexName, firstLeaf);
+
+    TreeNode node(start_block);
+    while (start_block->Offset < end_block->Offset)
+    {        
+        for (int i = node.getCount(); i > 0; node.pData += indexSize, --i)
+        {
+            res.push_back(getOffset(node.pData + keySize));
+        }
+        bid = node.isLeaf();
+        if (bid <= 0)
+            std::cerr << "ERROR::BLOCK ERROR!" << std::endl;
+        start_block = bm.GetBlock(indexName, bid);
+        node.attachTo(start_block);
+    }
+
+    if (isClosed)
+    {
+        for (int i = node.getCount(); i > 0; node.pData += indexSize, --i)
+        {
+            if (getKey(node.pData) <= key)
+                res.push_back(getOffset(node.pData + keySize));
+            else
+                break;
+        }
+    }
+    else
+    {
+        for (int i = node.getCount(); i > 0; node.pData += indexSize, --i)
+        {
+            if (getKey(node.pData) < key)
+                res.push_back(getOffset(node.pData + keySize));
+            else
+                break;
+        }
+    }
+
+
+    return res;
+}
+
+/*
+ * function: g_search
+ * Version: 1.1
+ * Author: kk
+ * Created Date: Mon Jun 25 20:29:31 DST 2018
+ * ------------------------------------------
+ * find the keys that great than and equal the search key.
+ * version 1.1: merge gt and ge together.
+ */
+template <typename T>
+std::vector<TuplePtr> BPTree<T>::g_search(const T &key, bool isClosed)
+{
+    std::vector<TuplePtr> res;
+    BlockIDType bid;
+    Block* start_block = getKeyNode(key);
+
+    TreeNode node(start_block);
+    if (isClosed)
+    {
+        for (int i = node.getCount(); i > 0; node.pData += indexSize, --i)
+        {
+            if (getKey(node.pData) >= key)
+                res.push_back(getOffset(node.pData + keySize));
+        }       
+    }
+    else
+    {
+        for (int i = node.getCount(); i > 0; node.pData += indexSize, --i)
+        {
+            if (getKey(node.pData) > key)
+                res.push_back(getOffset(node.pData + keySize));
+        } 
+    }
+
+    while (1)
+    {
+        bid = node.isLeaf();
+        if (bid <= 0)
+            break;
+        start_block = bm.GetBlock(indexName, bid);
+        node.attachTo(start_block);
+        for (int i = node.getCount(); i > 0; node.pData += indexSize, --i)
+        {
+            res.push_back(getOffset(node.pData + keySize));
+        }
+    }
+
+    return res;
+}
+
+/*
+ * function: range_search
+ * Version: 1.0
+ * Author: kk
+ * Created Date: Mon Jun 25 20:29:31 DST 2018
+ * ------------------------------------------
+ * add a range search API.
+ */
+template <typename T>
+std::vector<TuplePtr> BPTree<T>::range_search(const T lvalue, const T rvalue, 
+                                    bool lClosed, bool rClosed)
+{
+    std::vector<TuplePtr> res;
+    BlockIDType bid;
+    Block* start_block = getKeyNode(lvalue);
+
+    TreeNode node(start_block);
+    int i = 0;
+/*+-----------------------------------------------------------------+
+ *+                          case 1: []                             +
+ *+-----------------------------------------------------------------+*/
+    if (lClosed && rClosed)
+    {
+        while (1)
+        {
+            for ( i = node.getCount(); i > 0; node.pData += indexSize, --i)
+            {
+                if (getKey(node.pData) >= lvalue)
+                {
+                    if (getKey(node.pData) <= rvalue)
+                        res.push_back(getOffset(node.pData + keySize));
+                    else
+                        break;
+                }
+            }
+            bid = node.isLeaf();
+            if (i != 0 || bid <= 0)
+                break;
+            start_block = bm.GetBlock(indexName, bid);
+            node.attachTo(start_block);
+        }
+    }
+/*+-----------------------------------------------------------------+
+ *+                          case 2: [)                             +
+ *+-----------------------------------------------------------------+*/
+    else if (lClosed)
+    {
+        while (1)
+        {
+            for ( i = node.getCount(); i > 0; node.pData += indexSize, --i)
+            {
+                if (getKey(node.pData) >= lvalue)
+                {
+                    if (getKey(node.pData) < rvalue)
+                        res.push_back(getOffset(node.pData + keySize));
+                    else
+                        break;
+                }
+            }
+            bid = node.isLeaf();
+            if (i != 0 || bid <= 0)
+                break;
+            start_block = bm.GetBlock(indexName, bid);
+            node.attachTo(start_block);
+        }
+    }
+/*+-----------------------------------------------------------------+
+ *+                          case 3: (]                             +
+ *+-----------------------------------------------------------------+*/
+    else if (rClosed)
+    {
+        while (1)
+        {
+            for ( i = node.getCount(); i > 0; node.pData += indexSize, --i)
+            {
+                if (getKey(node.pData) > lvalue)
+                {
+                    if (getKey(node.pData) <= rvalue)
+                        res.push_back(getOffset(node.pData + keySize));
+                    else
+                        break;
+                }
+            }
+            bid = node.isLeaf();
+            if (i != 0 || bid <= 0)
+                break;
+            start_block = bm.GetBlock(indexName, bid);
+            node.attachTo(start_block);
+        }
+    }
+/*+-----------------------------------------------------------------+
+ *+                          case 4: ()                             +
+ *+-----------------------------------------------------------------+*/
+    else
+    {
+        while (1)
+        {
+            for ( i = node.getCount(); i > 0; node.pData += indexSize, --i)
+            {
+                if (getKey(node.pData) > lvalue)
+                {
+                    if (getKey(node.pData) < rvalue)
+                        res.push_back(getOffset(node.pData + keySize));
+                    else
+                        break;
+                }
+            }
+            bid = node.isLeaf();
+            if (i != 0 || bid <= 0)
+                break;
+            start_block = bm.GetBlock(indexName, bid);
+            node.attachTo(start_block);
+        }
+    }
+
+    return res;
+}
+
+/*
  * function: writeBack
  * Version: 1.0
  * Author: kk
@@ -1723,128 +1953,4 @@ bool BPTree<T>::_release(void)
     Changed = false;
     indexName = "";
     return true;
-}
-
-
-/*
- * function: range_search
- * Version: 1.0
- * Author: kk
- * Created Date: Sat Jun 16 01:07:47 DST 2018
- * ------------------------------------------
- * BPTree的区间搜索，() // (] // [) // []
- * 尚未修改，仍有部分问题
- */
-template <typename T>
-bool BPTree<T>::range_search(const T lvalue, const int lclosed, 
-                      const T rvalue, const int rclosed,
-                      std::vector<TuplePtr>& tuplePtrs)
-{
-    Block* pBlock = getKeyNode(lvalue);
-
-    if(lclosed>0&&rclosed>0)
-    {
-        Block* pBlock = getKeyNode(lvalue);
-        TreeNode node;
-        BlockIDType bid = pBlock->Offset;
-        while(bid>0)
-        {
-            node.attachTo(pBlock);
-            char* p = node.pData;;
-            char* end = node.pData+indexSize*(node.getCount()-1);
-            
-            T val;
-            while((val=getKey(p))<lvalue&&p<=end)
-            {
-                p+=indexSize;
-            }
-            if(p>end)
-            {
-                bid = node.isLeaf();    //next leaf
-                pBlock = bm.GetBlock(indexName, bid);
-                continue;
-            }
-            //找到第一个大于等于
-            while(p<=end&&(val=getKey(p))<=rvalue)
-            {
-                tuplePtrs.push_back(getOffset(p+keySize));
-                p+=indexSize;
-            }
-            if(p>end)
-            {
-                bid = node.isLeaf();    //next leaf
-                pBlock = bm.GetBlock(indexName, bid);
-                continue;
-            }
-            else
-            {
-                return true;    //结束搜索
-            }
-        }
-        
-    }
-    else if(lclosed>0&&rclosed<=0)
-    {
-        Block* pBlock = getKeyNode(lvalue);
-        TreeNode node;
-        BlockIDType bid = pBlock->Offset;
-        while(bid>0)
-        {
-            node.attachTo(pBlock);
-            char* p = node.pData;;
-            char* end = node.pData+indexSize*(node.getCount()-1);
-            
-            T val;
-            while((val=getKey(p))<lvalue&&p<=end)
-            {
-                p+=indexSize;
-            }
-            if(p>end)
-            {
-                bid = node.isLeaf();    //next leaf
-                if(bid<0) return true;
-                pBlock = bm.GetBlock(indexName, bid);
-                continue;
-            }
-            //找到第一个大于等于
-            while(p<=end)
-            {
-                tuplePtrs.push_back(getOffset(p+keySize));
-                p+=indexSize;
-            }
-            if(p>end)
-            {
-                bid = node.isLeaf();    //next leaf
-                if(bid<0) return true;
-                pBlock = bm.GetBlock(indexName, bid);
-            }
-        }
-    }
-    else if(lclosed<=0&&rclosed>0)
-    {
-        Block* pBlock = bm.GetBlock(indexName, firstLeaf);
-        TreeNode node;
-        BlockIDType bid = pBlock->Offset;
-        while(bid>0)
-        {
-            node.attachTo(pBlock);
-            char* p = node.pData;;
-            char* end = node.pData+indexSize*(node.getCount()-1);
-            T val;
-            while((val=getKey(p))<=rvalue&&p<=end)
-            {
-                tuplePtrs.push_back(getOffset(p+keySize));
-                p+=indexSize;
-            }
-            if(p>end)
-            {
-                bid = node.isLeaf();    //next leaf
-                if(bid<0) return true;
-                pBlock = bm.GetBlock(indexName, bid);
-            }
-            else return true;
-        }
-    }
-    return false;  //不存在上下界
-    
 }
