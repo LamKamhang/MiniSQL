@@ -10,3 +10,6 @@ Debug
 
 # vscode setting
 .vscode 
+
+# zip
+*.zip
