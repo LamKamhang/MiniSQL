@@ -1,4 +1,4 @@
-#include "IndexManger.h"
+#include "IndexManager.h"
 #include <string>
 #include <vector>
 #include "../interface.h"
