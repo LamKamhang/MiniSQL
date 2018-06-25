@@ -65,7 +65,41 @@ records RecordManager::SelectForCreateIndex(miniCreateIndex I,table t)
 	}
 	return record;	
 }
-
+	
+records RecordManager::DeleteByTuples(std::vector<TuplePtr> &tps, miniDelete I, table t)
+{
+	BufferManager bm;
+	Block* b;
+	records r(t);
+	TuplePtr tp;
+	int pos;
+	int i, k;
+	int order[32];
+	for (i = 0; i<I.conditionNum; i++)
+	{
+		order[i] = located(I.cond[i].attributeName, t);
+	}
+	int tempos;
+	for (k = 0; k < tps.size(); k++)
+	{
+		tp = tps[k];
+		b = bm.GetBlock(I.tableName, tp.blockID);
+		pos = tp.offset;
+		for (i = 0; i<I.conditionNum; i++)
+		{
+			tempos = findAttri(b, pos, order[i]);
+			if (!cmpAttri(b, tempos, I.cond[i]))
+				break;
+		}
+		if (i == I.conditionNum)//符合条件 
+		{
+			r.insert(b, pos);
+			fullblack(b,pos);
+			b->IsWritten = 1;
+		}
+	}
+	return r;
+}
 records RecordManager::SelectByTuples(vector<TuplePtr> &tps, miniSelect I, table t)
 {
 	BufferManager bm;

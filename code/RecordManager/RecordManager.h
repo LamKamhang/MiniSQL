@@ -50,7 +50,7 @@ public:
 	records SelectRecordByPos(Block* b,int pos,miniSelect I,table t);//根据block以及偏移量pos返回具体一条记录 
 	records SelectForCreateIndex(miniCreateIndex I,table t);
 	records SelectByTuples(std::vector<TuplePtr> &tps, miniSelect I, table t);
-//	void DeleteByTuples(TuplePtr tp,miniDelete I);
+	records DeleteByTuples(std::vector<TuplePtr> &tps, miniDelete I, table t);
 	int LenOfRecord(miniInsert I,table t);
 	int getInt(Block *block, int posBegin);
 	void setInt(Block *block, int posBegin,int num);
