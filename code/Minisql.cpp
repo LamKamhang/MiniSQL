@@ -8,7 +8,7 @@
 #include <fstream>
 #include <sstream>
 #include <cstdio>
-#include <vector>
+#include <queue>
 #include "API/API.h"
 
 using namespace MINISQL_BASE;
@@ -16,19 +16,17 @@ using namespace std;
 
 #define Threshold 5
 
-bool checkStatement(vector<string> &statements, string &line);
+bool checkStatement(queue<string> &statements, string &line);
 
 int main(void)
 {
 	API a;
 	miniStatement m;
-	char data[200];
-	vector<string> statements;
+	queue<string> statements;
 	string line;
 	string fileContent;
 	string res;
 	ifstream fin;
-	stringstream ss;
 	bool finish = false;
 
 	cout << "minisql=# ";
@@ -37,10 +35,13 @@ int main(void)
 		getline(cin, line);
 		res += line;
 		finish = checkStatement(statements, res);
-		for (size_t i = 0; i < statements.size(); ++i)
+		while(statements.size())
 		{
-			strcpy(data, statements[i].c_str());
-			m = miniInterpreter(data);
+			line = statements.front();
+			cout << line << endl;
+			cout << statements.size() << endl;
+			statements.pop();
+			m = miniInterpreter(line);
 			switch (m.flag)
 			{
 			case SYNTAX_ERROR:
@@ -62,11 +63,11 @@ int main(void)
 				}
 				else
 				{
+					stringstream ss;
 					ss << fin.rdbuf();
 					fin.close();
 					fileContent = ss.str();
 					checkStatement(statements, fileContent);
-					continue;
 				}
 				break;
 			case CREATETABLE:
@@ -99,23 +100,18 @@ int main(void)
 			a.writeBack();
 			counter = 0;
 		}
-#ifdef DEBUG
-		cout << "counter: " << counter << endl;
-#endif // DEBUG
-
-
 		if (finish)
 			cout << "minisql=# ";
 		else
 			cout << "minisql-# ";
 		//vector <string>().swap(statements);
-		statements.clear();
+		//statements.clear();
 	}
 	return 0;
 } 
 
 
-bool checkStatement(vector<string> &statements, string &line)
+bool checkStatement(queue<string> &statements, string &line)
 {
 	bool res = false;
 	std::string::size_type pos;
@@ -123,7 +119,7 @@ bool checkStatement(vector<string> &statements, string &line)
 	while ((pos = line.find(";")) != std::string::npos)
 	{
 		res = true;
-		statements.push_back(line.substr(0, pos + 1));
+		statements.emplace(line.substr(0, pos + 1));
 		line = line.substr(pos + 1);
 	}
 	return res;
