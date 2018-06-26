@@ -1,8 +1,8 @@
-ï»¿#ifndef _CRT_SECURE_NO_WARNINGS
-#define _CRT_SECURE_NO_WARNINGS
-#endif // !_CRT_SECURE_NO_WARNINGS
-
-#include "Interpreter.h"
+#include<iostream>
+#include<stdlib.h>
+#include<vector>
+#include<fstream>
+#include"Interpreter.h"
 using namespace std;
 /*void Interpreter::init()
 {
@@ -19,13 +19,20 @@ miniStatement miniInterpreter(char* in)
 	CatalogManager cm;
 	string d = " (),	\n";
 	splitString(in, d, split);
+	if(split.size()<=0)
+	{
+		SQL.flag = SYNTAX_ERROR;
+		cout<<"You have an error in your SQL syntax!"<<endl;
+		return SQL;	
+	}
+	
 	if (split[0] == "select")
 	{
 		int i = split[split.size() - 1].find(";");
 		if (i != split[split.size() - 1].length() - 1)
 		{
 			SQL.flag = SYNTAX_ERROR;
-			cout<<"Error! Check your input, please!"<<endl;
+			cout<<"You have an error in your SQL syntax; check whether the semicolon was written!"<<endl;
 			return SQL;
 		}
 		else
@@ -42,13 +49,12 @@ miniStatement miniInterpreter(char* in)
 							SQL.flag = SELECT;
 							SQL.MiniSelect.tableName = split[3];
 							SQL.MiniSelect.conditionNum = 0;
-							cout<<"Success!"<<endl;
 							return SQL;
 						}
 						else
 						{
 							SQL.flag = SYNTAX_ERROR;
-							cout<<"Error! Check your input, please!"<<endl;
+							cout<<"The table you are looking for does not exist!"<<endl;
 							return SQL;
 						}
 					}
@@ -89,6 +95,9 @@ miniStatement miniInterpreter(char* in)
 								else
 								{
 									SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].oprt=ERROR;
+									SQL.flag=SQL.flag;
+									cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[j+1]<<"'"<<endl;
+									return SQL;
 								}
 								if (strstr(split[j + 2].c_str(), "'"))
 								{
@@ -116,29 +125,29 @@ miniStatement miniInterpreter(char* in)
 						}
 						else
 						{
-							SQL.flag = SYNTAX_ERROR;
-							cout<<"Error! Check your input, please!"<<endl;
+							SQL.flag = SQL.flag;
+							cout<<"The table you are looking for does not exist!"<<endl;
 							return SQL;
 						}
 					}
 					else
 					{
 						SQL.flag = SYNTAX_ERROR;
-						cout<<"Error! Check your input, please!"<<endl;
+						cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[4]<<"''"<<endl;
 						return SQL;
 					}
 				}
 				else
 				{
 					SQL.flag = SYNTAX_ERROR;
-					cout<<"Error! Check your input, please!"<<endl;
+					cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[2]<<"''"<<endl;
 					return SQL;
 				}
 			}
 			else
 			{
 				int posFrom = -1;
-				// å½“é€‰æ‹©ä¸æ˜¯å…¨éƒ¨å±æ€§çš„æ—¶å€™ å³ä¸æ˜¯*çš„æƒ…å†µ
+				// µ±Ñ¡Ôñ²»ÊÇÈ«²¿ÊôĞÔµÄÊ±ºò ¼´²»ÊÇ*µÄÇé¿ö
 				for (int j = 0; j < split.size(); j++)
 				{
 					if (split[j] == "from")
@@ -147,7 +156,7 @@ miniStatement miniInterpreter(char* in)
 				if (posFrom == -1 || posFrom == 1)
 				{
 					SQL.flag = SYNTAX_ERROR;
-					cout<<"Error! Check your input, please!"<<endl;
+					cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[posFrom]<<"'"<<endl;
 					return SQL;
 				}
 				if (cm.isTable(split[posFrom + 1]))
@@ -162,7 +171,7 @@ miniStatement miniInterpreter(char* in)
 						{
 							SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].oprt=EQ;
 						}									
-						else if(split[j + 1]=="<>" || split[j + 1] == "!=")
+						else if(split[j + 1]=="<>")
 						{
 							SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].oprt=NE;
 						}
@@ -185,6 +194,9 @@ miniStatement miniInterpreter(char* in)
 						else
 						{
 							SQL.MiniSelect.cond[SQL.MiniSelect.conditionNum].oprt=ERROR;
+							SQL.flag=SYNTAX_ERROR;
+							cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[j+1]<<"'"<<endl;
+							return SQL;
 						}
 						if (strstr(split[j + 2].c_str(), "'"))
 						{
@@ -211,7 +223,7 @@ miniStatement miniInterpreter(char* in)
 				else
 				{
 					SQL.flag = SYNTAX_ERROR;
-					cout<<"Error! Check your input, please!"<<endl;
+					cout<<"The table you are looking for does not exist!"<<endl;
 					return SQL;
 				}
 				SQL.MiniSelect.attributeNum = 0;
@@ -227,7 +239,7 @@ miniStatement miniInterpreter(char* in)
 					else
 					{
 						SQL.flag = SYNTAX_ERROR;
-						cout<<"Error! Check your input, please!"<<endl;
+						cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[j]<<"'"<<endl;
 						return SQL;
 					}
 				}
@@ -244,7 +256,7 @@ miniStatement miniInterpreter(char* in)
 			if (i != split[split.size() - 1].length()-1)
 			{
 				SQL.flag = SYNTAX_ERROR;
-				cout<<"Error! Check your input, please!"<<endl;					
+				cout<<"You have an error in your SQL syntax; check whether the semicolon was written!"<<endl;					
 				return SQL;
 			}
 			else
@@ -257,13 +269,12 @@ miniStatement miniInterpreter(char* in)
 						SQL.flag = DELETE;
 						SQL.MiniDelete.tableName = split[2];
 						SQL.MiniDelete.conditionNum = 0;
-						cout<<"Success!"<<endl;
 						return SQL;
 					}
 					else
 					{
 						SQL.flag = SYNTAX_ERROR;
-						cout<<"Error! Check your input, please!"<<endl;
+						cout<<"The table you are looking for does not exist!"<<endl;
 						return SQL;
 					}
 				}
@@ -277,33 +288,36 @@ miniStatement miniInterpreter(char* in)
 						for (int j = 4; j < split.size(); j = j + 4)
 						{
 							SQL.MiniDelete.cond[SQL.MiniDelete.conditionNum].attributeName = split[j];
-							if(split[j + 1]=="=")
+							if (split[j + 1] == "=")
 							{
-								SQL.MiniSelect.cond[SQL.MiniDelete.conditionNum].oprt=EQ;
-							}									
-							else if(split[j + 1]=="<>")
-							{
-								SQL.MiniSelect.cond[SQL.MiniDelete.conditionNum].oprt=NE;
+								SQL.MiniDelete.cond[SQL.MiniDelete.conditionNum].oprt = EQ;
 							}
-							else if(split[j + 1]=="<=")
+							else if (split[j + 1] == "<>")
 							{
-								SQL.MiniSelect.cond[SQL.MiniDelete.conditionNum].oprt=LE;
+								SQL.MiniDelete.cond[SQL.MiniDelete.conditionNum].oprt = NE;
 							}
-							else if(split[j + 1]==">=")
+							else if (split[j + 1] == "<=")
 							{
-								SQL.MiniSelect.cond[SQL.MiniDelete.conditionNum].oprt=GE;
+								SQL.MiniDelete.cond[SQL.MiniDelete.conditionNum].oprt = LE;
 							}
-							else if(split[j + 1]=="<")
+							else if (split[j + 1] == ">=")
 							{
-								SQL.MiniSelect.cond[SQL.MiniDelete.conditionNum].oprt=LT;
+								SQL.MiniDelete.cond[SQL.MiniDelete.conditionNum].oprt = GE;
 							}
-							else if(split[j + 1]==">")
+							else if (split[j + 1] == "<")
 							{
-								SQL.MiniSelect.cond[SQL.MiniDelete.conditionNum].oprt=GT;
+								SQL.MiniDelete.cond[SQL.MiniDelete.conditionNum].oprt = LT;
+							}
+							else if (split[j + 1] == ">")
+							{
+								SQL.MiniDelete.cond[SQL.MiniDelete.conditionNum].oprt = GT;
 							}
 							else
 							{
-								SQL.MiniSelect.cond[SQL.MiniDelete.conditionNum].oprt=ERROR;
+								SQL.MiniDelete.cond[SQL.MiniDelete.conditionNum].oprt = ERROR;
+								SQL.flag=SYNTAX_ERROR;
+								cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[j+1]<<"'"<<endl;
+								return SQL;
 							}
 							if (strstr(split[j + 2].c_str(), "'"))
 							{
@@ -326,22 +340,20 @@ miniStatement miniInterpreter(char* in)
 								SQL.MiniDelete.conditionNum++;
 							}
 						}
-						cout<<"Success!"<<endl;
 						return SQL;
-						
 						
 					}
 					else
 					{
 						SQL.flag = SYNTAX_ERROR;
-						cout<<"Error! Check your input, please!"<<endl;
+						cout<<"The table you are looking for does not exist!"<<endl;
 						return SQL;
 					}				
 				}
 				else
 				{
 					SQL.flag = SYNTAX_ERROR;
-					cout<<"Error! Check your input, please!"<<endl;					
+					cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[3]<<"'"<<endl;			
 					return SQL;
 				}
 			}
@@ -349,7 +361,7 @@ miniStatement miniInterpreter(char* in)
 		else
 		{
 			SQL.flag = SYNTAX_ERROR;
-			cout<<"Error! Check your input, please!"<<endl;
+			cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[1]<<"'"<<endl;
 			return SQL;
 		}
 	}
@@ -365,7 +377,7 @@ miniStatement miniInterpreter(char* in)
 					if (split[split.size() - 1] != ";")
 					{
 						SQL.flag = SYNTAX_ERROR;
-						cout<<"Error! Check your input, please!"<<endl;
+						cout<<"You have an error in your SQL syntax; check whether the semicolon was written!"<<endl;
 						return SQL;
 					}
 					else
@@ -396,28 +408,27 @@ miniStatement miniInterpreter(char* in)
 								SQL.MiniInsert.insertNum++;
 							}
 						}
-						cout<<"Success!"<<endl;
 						return SQL;
 					}				
 				}
 				else
 				{
 					SQL.flag = SYNTAX_ERROR;
-					cout<<"Error! Check your input, please!"<<endl;
+					cout<<"The table you are looking for does not exist!"<<endl;
 					return SQL;
 				}
 			}
 			else
 			{
 				SQL.flag = SYNTAX_ERROR;
-				cout<<"Error! Check your input, please!"<<endl;
+				cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[3]<<"'"<<endl;
 				return SQL;
 			}
 		}
 		else
 		{
 			SQL.flag = SYNTAX_ERROR;
-			cout<<"Error! Check your input, please!"<<endl;
+			cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[1]<<"'"<<endl;
 			return SQL;
 		}
 	}
@@ -428,7 +439,7 @@ miniStatement miniInterpreter(char* in)
 		if (i != split[1].length() - 1)
 		{
 			SQL.flag = SYNTAX_ERROR;
-			cout<<"Error! Check your input, please!"<<endl;
+			cout<<"You have an error in your SQL syntax; check whether the semicolon was written!"<<endl;
 			return SQL;
 		}
 		else
@@ -436,7 +447,28 @@ miniStatement miniInterpreter(char* in)
 			SQL.flag = EXEFILE;
 			split[1] = split[1].erase(split[1].length() - 1, 1);
 			SQL.MiniFile.fileName = split[1];
-			cout<<"Success!"<<endl;
+			ifstream infile;
+			infile.open(split[1]);
+			if (infile.is_open())	// ³É¹¦¶ÁÈ¡
+			{
+				string s;
+				const char *p;
+				char data[200];
+				while (getline(infile, s, ';'))
+				{
+					s = s + ";";
+					p = s.c_str();
+					for (i = 0; p[i] != ';'; i++)data[i] = p[i];
+					data[i] = p[i];
+					miniInterpreter(data);
+				}
+			}
+			else
+			{
+				SQL.flag = SYNTAX_ERROR;
+				cout << "The file can't be found or it doesn't exist!" << endl;
+				return SQL;
+			}
 			return SQL;
 		}
 	}
@@ -445,18 +477,18 @@ miniStatement miniInterpreter(char* in)
 	{
 		if (split[1] == "table")
 		{
-			if (split[split.size() - 1] != ";")	//åˆ¤æ–­æœ‰æ²¡æœ‰åˆ†å·ç»“å°¾
+			if (split[split.size() - 1] != ";")	//ÅĞ¶ÏÓĞÃ»ÓĞ·ÖºÅ½áÎ²
 			{
 				SQL.flag = SYNTAX_ERROR;
-				cout<<"Error! Check your input, please!"<<endl;
+				cout<<"You have an error in your SQL syntax; check whether the semicolon was written!"<<endl;
 				return SQL;
 			}
 			else
 			{
-				if (cm.isTable(split[2]))	  //æ£€æŸ¥è¡¨åæ˜¯å¦å·²ç»å­˜åœ¨
+				if (cm.isTable(split[2]))	  //¼ì²é±íÃûÊÇ·ñÒÑ¾­´æÔÚ
 				{
 					SQL.flag = SYNTAX_ERROR;
-					cout<<"Error! Check your input, please!"<<endl;
+					cout<<"The table you are looking for does not exist!"<<endl;
 					return SQL;
 				}
 				else
@@ -464,7 +496,7 @@ miniStatement miniInterpreter(char* in)
 					SQL.flag = CREATETABLE;
 					SQL.MiniCreateTable.tableName = split[2];
 					SQL.MiniCreateTable.attributeNum = 0;
-					vector<string> primary;		//ç”¨äºè®°å½•å±æ€§åï¼Œä¾¿äºä¸»é”®çš„boolå€¼å†™å…¥
+					vector<string> primary;		//ÓÃÓÚ¼ÇÂ¼ÊôĞÔÃû£¬±ãÓÚÖ÷¼üµÄboolÖµĞ´Èë
 					int j = 0;
 					for (int k = 3; k < split.size()-1; k++)
 					{					
@@ -523,7 +555,7 @@ miniStatement miniInterpreter(char* in)
 							else
 							{
 								SQL.flag = SYNTAX_ERROR;
-								cout<<"Error! Check your input, please!"<<endl;
+								cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[k+1]<<"'"<<endl;
 								return SQL;
 							}
 						}											
@@ -543,7 +575,7 @@ miniStatement miniInterpreter(char* in)
 								if (m > j)
 								{
 									SQL.flag = SYNTAX_ERROR;
-									cout<<"Error! Check your input, please!"<<endl;
+									cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[k+2]<<"'"<<endl;
 									return SQL;
 								}
 								k = k + 3;
@@ -551,12 +583,11 @@ miniStatement miniInterpreter(char* in)
 							else
 							{
 								SQL.flag = SYNTAX_ERROR;
-								cout<<"Error! Check your input, please!"<<endl;
+								cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[k+1]<<"'"<<endl;
 								return SQL;
 							}
 						}
 					}
-					cout<<"Success!"<<endl;
 					return SQL;
 				}
 			}			
@@ -566,7 +597,7 @@ miniStatement miniInterpreter(char* in)
 			if (split[6]!=";")
 			{
 				SQL.flag = SYNTAX_ERROR;
-				cout<<"Error! Check your input, please!"<<endl;
+				cout<<"You have an error in your SQL syntax; check whether the semicolon was written!"<<endl;
 				return SQL;
 			}
 			else
@@ -581,20 +612,19 @@ miniStatement miniInterpreter(char* in)
 							SQL.MiniCreateIndex.indexName = split[2];
 							SQL.MiniCreateIndex.tableName = split[4];
 							SQL.MiniCreateIndex.attributeName = split[5];
-							cout<<"Success!"<<endl;
 							return SQL;
 						}
 						else
 						{
 							SQL.flag = SYNTAX_ERROR;
-							cout<<"Error! Check your input, please!"<<endl;
+							cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[5]<<"'"<<endl;
 							return SQL;
 						}
 					}
 					else
 					{
 						SQL.flag = SYNTAX_ERROR;
-						cout<<"Error! Check your input, please!"<<endl;
+						cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[4]<<"'"<<endl;
 						return SQL;
 					}
 
@@ -602,7 +632,7 @@ miniStatement miniInterpreter(char* in)
 				else
 				{
 					SQL.flag = SYNTAX_ERROR;
-					cout<<"Error! Check your input, please!"<<endl;
+					cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[3]<<"'"<<endl;
 					return SQL;
 				}
 			}
@@ -614,7 +644,7 @@ miniStatement miniInterpreter(char* in)
 			if (i != split[2].length() - 1)
 			{
 				SQL.flag = SYNTAX_ERROR;
-				cout<<"Error! Check your input, please!"<<endl;
+				cout<<"You have an error in your SQL syntax; check whether the semicolon was written!"<<endl;
 				return SQL;
 			}
 			else
@@ -622,7 +652,6 @@ miniStatement miniInterpreter(char* in)
 				SQL.flag = CREATEDATABASE;
 				split[2] = split[2].erase(split[2].length() - 1, 1);
 				SQL.MiniCreateDatabase.databaseName = split[2];
-				cout<<"Success!"<<endl;
 				return SQL;
 			}
 			
@@ -630,7 +659,7 @@ miniStatement miniInterpreter(char* in)
 		else
 		{
 			SQL.flag = SYNTAX_ERROR;
-			cout<<"Error! Check your input, please!"<<endl;
+			cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[1]<<"'"<<endl;
 			return SQL;
 		}
 	}
@@ -643,7 +672,7 @@ miniStatement miniInterpreter(char* in)
 			if (i != split[2].length() - 1)
 			{
 				SQL.flag = SYNTAX_ERROR;
-				cout<<"Error! Check your input, please!"<<endl;
+				cout<<"You have an error in your SQL syntax; check whether the semicolon was written!"<<endl;
 				return SQL;
 			}
 			else
@@ -652,14 +681,13 @@ miniStatement miniInterpreter(char* in)
 				if(!cm.isTable(split[2]))
 				{
 					SQL.flag = SYNTAX_ERROR;
-					cout<<"Error! Check your input, please!"<<endl;
+					cout<<"The table you are looking for does not exist!"<<endl;
 					return SQL;
 				}
 				else
 				{
 					SQL.flag = DROPTABLE;
 					SQL.MiniDropTable.tableName = split[2];
-					cout<<"Success!"<<endl;
 					return SQL;
 				}
 				
@@ -672,7 +700,7 @@ miniStatement miniInterpreter(char* in)
 			if (i != split[2].length() - 1)
 			{
 				SQL.flag = SYNTAX_ERROR;
-				cout<<"Error! Check your input, please!"<<endl;
+				cout<<"The table you are looking for does not exist!"<<endl;
 				return SQL;
 			}
 			else
@@ -687,7 +715,7 @@ miniStatement miniInterpreter(char* in)
 				else
 				{
 					SQL.flag = SYNTAX_ERROR;
-					cout<<"Error! Check your input, please!"<<endl;
+					cout<<"The index doesn't exist!"<<endl;
 					return SQL;
 				}
 			}
@@ -699,7 +727,7 @@ miniStatement miniInterpreter(char* in)
 			if (i != split[2].length() - 1)
 			{
 				SQL.flag = SYNTAX_ERROR;
-				cout<<"Error! Check your input, please!"<<endl;
+				cout<<"You have an error in your SQL syntax; check whether the semicolon was written!"<<endl;
 				return SQL;
 			}
 			else
@@ -714,7 +742,7 @@ miniStatement miniInterpreter(char* in)
 		else
 		{
 			SQL.flag = SYNTAX_ERROR;
-			cout<<"Error! Check your input, please!"<<endl;
+			cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[1]<<"'"<<endl;
 			return SQL;
 		}
 	}
@@ -732,7 +760,7 @@ miniStatement miniInterpreter(char* in)
 		if (i != split[1].length() - 1)
 		{
 			SQL.flag = SYNTAX_ERROR;
-			cout<<"Error! Check your input, please!"<<endl;
+			cout<<"You have an error in your SQL syntax; check whether the semicolon was written!"<<endl;
 			return SQL;
 		}
 		else
@@ -740,7 +768,6 @@ miniStatement miniInterpreter(char* in)
 			SQL.flag = USEDATABASE;
 			split[1] = split[1].erase(split[1].length() - 1, 1);
 			SQL.MiniUseDatabase.databaseName = split[1];
-			cout<<"Success!"<<endl;
 			return SQL;
 		}
 		
@@ -749,7 +776,7 @@ miniStatement miniInterpreter(char* in)
 	else
 	{
 		SQL.flag = SYNTAX_ERROR;
-		cout<<"Error! Check your input, please!"<<endl;
+		cout<<"You have an error in your SQL syntax; systax error at or near '"<<split[0]<<"'"<<endl;
 		return SQL;
 	}
 }

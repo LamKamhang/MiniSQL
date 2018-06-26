@@ -26,16 +26,16 @@ void records::insert(Block* b,int pos)
 			r.cond[c].intValue = i;
 			pos += sizeof(int);
 			break;
-		case 3://float
+		case 2://float
 			f = rm.getFloat(b, pos);
 			r.cond[c].floatValue = f;
 			pos += sizeof(float);
 			break;
-		case 2://std::string
+		case 3://std::string
 			s = rm.getString(b, pos);
 			r.cond[c].stringValues = s;
+			pos += attributes[c].length;
 			break;
-			pos += sizeof(r.cond[c].stringValues);
 		}
 		pos++;//跳过分隔符 
 	}
@@ -138,23 +138,18 @@ int RecordManager::LenOfRecord(miniInsert I,table t)
 	int lenR=0;
     int i;
     int k;
-    for(i=0;i<I.insertNum;i++)
+    for(i=0;i<I.insertNum-1;i++)
     {
     	switch(I.cond[i].type)
     	{
-    	case 0://int 
+    	case Integer://int 
        		lenR+=sizeof(int);
     		break;
-    	case 1://float
+    	case Float://float
     		lenR+=sizeof(float);
     		break;    		
-    	case 2://string
-			for(k=0;k<t.attributeNum;k++)
-			{
-				if(t.attributes[k].name==I.cond[i].attributeName)
-				break;
-			}
-			lenR+=t.attributes[k].length;
+    	case String://string
+			lenR+=t.attributes[i].length;
 			break;
 		}
     }
@@ -186,15 +181,15 @@ TuplePtr RecordManager::InsertRecord(miniInsert I,table t)
     {
     	switch(I.cond[i].type)
     	{
-    	case 1://int 
+    	case Integer://int 
     		setInt(b,pos,I.cond[i].intValue);
     		pos+=sizeof(int);
     		break;
-    	case 3://float
+    	case Float://float
     		setFloat(b,pos,I.cond[i].floatValue);
     		pos+=sizeof(float);
     		break;    		
-    	case 2://string
+    	case String://string
 			setString(b,pos,I.cond[i].stringValues);
 			pos+=t.attributes[i].length;
 			break;
@@ -225,6 +220,7 @@ bool RecordManager::DeleteRecord(miniDelete I,table t)
 		data=b->data;
 		while(data[pos-1]!=-2)
 		{
+			while (data[pos] == -1)pos = FindNextRecord(b, pos);
 			for(i=0;i<num;i++)
 			{
 				tempos=findAttri(b,pos,order[i]);
@@ -365,7 +361,6 @@ int RecordManager::findAttri(Block *block, int posBegin,int order)
 	return posBegin+1;
 }
 
-/*比较属性(不完整）*/
 bool RecordManager::cmpAttri(Block *block, int posBegin,condition c)
 {
 	int i;
@@ -373,18 +368,42 @@ bool RecordManager::cmpAttri(Block *block, int posBegin,condition c)
 	string s;
 	switch (c.type)
 	{
-		case 1:
+		case Integer:
 			i=getInt(block,posBegin);
-			if(i==c.intValue)return 1;
-			else return 0;
-		case 3:
-			f=getFloat(block,posBegin);
-			if(f==c.floatValue)return 1;
-			else return 0;
-		case 2:
+			switch (c.oprt)
+			{
+			case EQ:if (i == c.intValue)return 1; break;
+			case NE:if (i != c.intValue)return 1; break;
+			case LE:if (i <= c.intValue)return 1; break;
+			case GE:if (i >= c.intValue)return 1; break;
+			case LT:if (i <  c.intValue)return 1; break;
+			case GT:if (i >  c.intValue)return 1; break;
+			}
+			return 0;
+		case Float:
+			f = getFloat(block, posBegin);
+			switch (c.oprt)
+			{
+			case EQ:if (f == c.floatValue)return 1; break;
+			case NE:if (f != c.floatValue)return 1; break;
+			case LE:if (f <= c.floatValue)return 1; break;
+			case GE:if (f >= c.floatValue)return 1; break;
+			case LT:if (f <  c.floatValue)return 1; break;
+			case GT:if (f >  c.floatValue)return 1; break;
+			}
+			return 0;
+		case String:
 			s=getString(block,posBegin);
-			if(s==c.stringValues)return 1;
-			else return 0;
+			switch (c.oprt)
+			{
+			case EQ:if (s == c.stringValues)return 1; break;
+			case NE:if (s != c.stringValues)return 1; break;
+			case LE:if (s <= c.stringValues)return 1; break;
+			case GE:if (s >= c.stringValues)return 1; break;
+			case LT:if (s <  c.stringValues)return 1; break;
+			case GT:if (s >  c.stringValues)return 1; break;
+			}
+			return 0;
 		default:
 			return 0;
 	}
@@ -403,7 +422,7 @@ void RecordManager::fullblack(Block *block, int posBegin)
 {
 	int i=0;
 	char* p=block->data+posBegin;
-	while(p[i]!=-3&&p[i]!=-2)if(p[i]!=',')p[i++]=255;
+	while (p[i] != -3 && p[i] != -2) { if (p[i] != ',')p[i] = 255; i++; }
 	return; 
 }
 
@@ -441,8 +460,8 @@ std::string RecordManager::getString(Block *block, int posBegin)
 {
 	int num=0; 
 	char* str = (char*)block->data + posBegin;
-	if(str[num]!=-3&&str[num]!=','&&str[num]!=-2&&str[num]!=0)num++;
-	std::string theString(str, num);
+	while(str[num]!=-3&&str[num]!=','&&str[num]!=-2&&str[num]!=0)num++;
+	std::string theString(str, num+1);
 	return theString;
 }
 

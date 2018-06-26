@@ -23,7 +23,7 @@ public:
 	bool Insert(miniInsert I);
 	bool Create(miniCreateTable I);
 	bool Drop(miniDropTable I);
-	records Select(miniSelect I);
+	bool Select(miniSelect I);
 	bool Delete(miniDelete I);
 	bool CreateIndex(miniCreateIndex I);
 	bool DropIndex(miniDropIndex I);

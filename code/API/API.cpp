@@ -3,6 +3,7 @@
 #endif // !_CRT_SECURE_NO_WARNINGS
 
 #include "API.h"
+#include <iomanip>
 using namespace std;
 
 bool API::Insert(miniInsert I)
@@ -28,6 +29,7 @@ bool API::Create(miniCreateTable I)
 {
 	bm.GetNewBlock(I.tableName,0);
 	cm.createTable(I);
+	//index.create
 	return 1;
 }
 
@@ -38,7 +40,7 @@ bool API::Drop(miniDropTable I)
 	return 1;
 }
 
-records API::Select(miniSelect I)
+bool API::Select(miniSelect I)
 {
 	int i;
 	table t;
@@ -49,9 +51,9 @@ records API::Select(miniSelect I)
 	int num=t.attributeNum;
 	for(i=0;i<I.conditionNum;i++)
 	{
-		if(cm.isIndex(I.tableName,t.attributes[i].name))
+		if(cm.isIndex(I.tableName,I.cond[i].attributeName))
 		{
-			indexName=cm.getIndex(I.tableName, t.attributes[i].name);
+			indexName=cm.getIndex(I.tableName, I.cond[i].attributeName);
 			break;
 		}
 	}
@@ -60,39 +62,137 @@ records API::Select(miniSelect I)
 	else
 	{
 		im._select(indexName,I.cond[i],tp);
-//		r=rm.SelectByTuples(tp,I,t);
-		//index_insert，名字，条件 
-		//返回一个tuple 
-		//再调用rm进行数据选择 
+		r=rm.SelectByTuples(tp,I,t);
 	}
-	return r;
+	vector<int> wide;
+	for (int i = 0; i < r.attributes.size(); i++)
+	{
+		cout << "+";
+		for (int j = 0; j < r.attributes[i].length; j++)
+		{
+			if (r.attributes[i].name.length() >= r.attributes[i].length)
+			{
+				wide.push_back(r.attributes[i].name.length());
+				for (int k = 0; k<r.attributes[i].name.length(); k++)
+				{
+					cout << "-";
+				}
+			}
+			else
+			{
+				wide.push_back(r.attributes[i].length);
+				for (int k = 0; k<r.attributes[i].length; k++)
+				{
+					cout << "-";
+				}
+			}
+		}
+	}
+	cout << "+" << endl;
+	cout << "|";
+	for (int j = 0; j<r.attributes.size(); j++)
+	{
+		cout << setw(wide[j]) << r.attributes[j].name << "|";
+	}
+	cout << endl;
+	for (int i = 0; i < r.attributes.size(); i++)
+	{
+		cout << "+";
+		for (int j = 0; j < r.attributes[i].length; j++)
+		{
+			if (r.attributes[i].name.length() >= r.attributes[i].length)
+			{
+				for (int k = 0; k<r.attributes[i].name.length(); k++)
+				{
+					cout << "-";
+				}
+			}
+			else
+			{
+				wide.push_back(r.attributes[i].length);
+				for (int k = 0; k<r.attributes[i].length; k++)
+				{
+					cout << "-";
+				}
+			}
+		}
+	}
+	cout << "+" << endl;
+	for (int i = 0; i<r.record_list.size(); i++)
+	{
+		cout << "|";
+		for (int j = 0; j<r.attributes.size(); j++)
+		{
+			if (r.record_list[i].cond[j].type == Integer)
+			{
+				cout << setw(wide[j]) << r.record_list[i].cond[j].intValue << "|";
+			}
+			else if (r.record_list[i].cond[j].type == Float)
+			{
+				cout << setw(wide[j]) << r.record_list[i].cond[j].floatValue << "|";
+			}
+			else
+			{
+				cout << setw(wide[j]) << r.record_list[i].cond[j].stringValues << "|";
+			}
+		}
+		cout << endl;
+	}
+	for (int i = 0; i < r.attributes.size(); i++)
+	{
+		cout << "+";
+		for (int j = 0; j < r.attributes[i].length; j++)
+		{
+			if (r.attributes[i].name.length() >= r.attributes[i].length)
+			{
+				for (int k = 0; k<r.attributes[i].name.length(); k++)
+				{
+					cout << "-";
+				}
+			}
+			else
+			{
+				wide.push_back(r.attributes[i].length);
+				for (int k = 0; k<r.attributes[i].length; k++)
+				{
+					cout << "-";
+				}
+			}
+		}
+	}
+	cout << "+" << endl;
+	return 1;
 }
 bool API::Delete(miniDelete I)
 {
 	Block* b;
 	char* data;
-	int i;
+	int i,j;
 	table t;
 	records r;
 	string indexName;
-//	vector<TuplePtr> tp1,tp2;
+	vector<TuplePtr> tp;
 	t=cm.getTable(I.tableName);
 	int num=t.attributeNum;
-/*	for(i=0;i<I.insertNum;i++)
+	for(i=0;i<I.conditionNum;i++)
 	{
 		if(cm.isIndex(I.tableName,I.cond[i].attributeName))
 		{
 			indexName=cm.getIndex(I.tableName,I.cond[i].attributeName);
-			_select(indexName,I.cond[i],tp1);
+			break;
 		}
 	}
-	if(i==I.insertNum)*/
+	if(i==I.conditionNum)
 	rm.DeleteRecord(I,t);
-/*	else
+	else
 	{
-		tp=im._delete(indexName,I.cond[i]);
-		r=DeleteByTuples(tp,I);
-	}*/
+		im._select(indexName,I.cond[i],tp);
+		r=rm.DeleteByTuples(tp,I,t);
+		for (j = 0; j < r.recordNum; j++)
+		{
+			im._delete(indexName, r.record_list[j].cond[i]);
+		}
+	}
 	return 1;
 }
 

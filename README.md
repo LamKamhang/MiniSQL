@@ -25,7 +25,7 @@
   - **RecordManager**（翔）
     - [ ] 完成情况
   - **IndexManager**（kk）
-    - [ ] 完成情况
+    - [x] 完成情况
   - **BufferManager**（阿洪）
     - [ ] 完成情况
 
