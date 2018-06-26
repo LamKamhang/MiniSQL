@@ -1,4 +1,4 @@
-Ôªø#ifndef _CRT_SECURE_NO_WARNINGS
+#ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 #endif // !_CRT_SECURE_NO_WARNINGS
 
@@ -16,6 +16,7 @@ int CatalogManager::getIndexNum()
 {
 	return indexNum;
 }
+
  
 bool CatalogManager::readTableFile()
 {
@@ -55,7 +56,7 @@ bool CatalogManager::readTableFile()
 						if (strDest[i] == "int")
 						{
 							a.type = Integer;
-							a.length = sizeof(int);	// 4 --> sizeof(int), ÂèØÂÖºÂÆπÔºåÂπ∂‰∏çÊòØÊâÄÊúâÁöÑintÈÉΩ‰∏ÄÂÆöÊòØ4
+							a.length = sizeof(int);	// 4 --> sizeof(int), ø…ºÊ»›£¨≤¢≤ª «À˘”–µƒint∂º“ª∂® «4
 						}
 						if (strDest[i] == "char")
 						{
@@ -65,7 +66,7 @@ bool CatalogManager::readTableFile()
 						if (strDest[i] == "float")
 						{
 							a.type = Float;
-							a.length = sizeof(float);// 8--> sizeof(float), ÂêåÁêÜ
+							a.length = sizeof(float);// 8--> sizeof(float), Õ¨¿Ì
 						}
 						if (strDest[i] == "unique")
 						{
@@ -189,6 +190,19 @@ bool CatalogManager::isAttribute(string tableName, string attributeName)
 	return false;
 }
 
+int CatalogManager::getAttributeNum(string tableName)
+{
+	if (isTable(tableName))
+	{
+		for (int i = 0; i < getTableNum(); i++)
+		{
+			if (tables[i].tableName == tableName)
+				return tables[i].attributeNum;
+		}
+	}
+	else
+		return 0;
+}
 
 bool CatalogManager::createTable(miniCreateTable I)
 {
@@ -491,3 +505,4 @@ int  splitString(const string & strSrc, const std::string& strDelims, vector<str
 	}
 	return strDest.size();
 }
+

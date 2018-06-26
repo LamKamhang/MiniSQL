@@ -29,7 +29,6 @@ BufferManager::~BufferManager()
 {
 	if(!WriteBackAll())
 	{
-		std::cout << "Buffer Exception!!!" << endl;
 		exit(1);
 	}
 
@@ -45,10 +44,9 @@ bool BufferManager::WriteBackAll()
 	{
         if(Buffer[i].Offset==-1)
             continue;
-		if(! WriteBack(i))
-		{
-				std::cout << "Buffer Exception!!!" << endl;
-				return false;
+		if(!WriteBack(i))
+		{				
+			return false;
 		}
 	}
 
@@ -155,8 +153,7 @@ Block* BufferManager::GetBlock(string FileName, int Offset)
 		return &Buffer[Replaced];
 	}
 	else
-	{
-		std::cout << "Buffer Exception!!!" << endl;
+	{		
 		return NULL;
 	}
 

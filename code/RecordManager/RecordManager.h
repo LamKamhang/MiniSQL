@@ -59,6 +59,7 @@ public:
 	std::string getString(Block *block, int posBegi);
 	void setString(Block *block, int posBegin, std::string str);
 private:
+	int cmpstring(std::string s1, std::string s2);
 	int FindEnd(char* data);
 	int located(std::string name,table t);
 	int findAttri(Block *block, int posBegin,int order);

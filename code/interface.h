@@ -35,6 +35,8 @@ namespace MINISQL_BASE {
     // extern const int BlockSize;
     // extern const int MaxBlocks;
 
+	extern size_t counter;
+
     typedef unsigned int BlockIDType;
     typedef struct TuplePtr OffsetType;
 

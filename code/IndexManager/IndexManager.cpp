@@ -272,7 +272,6 @@ bool IndexManager::_create(const std::string &indexName, const records &values, 
         fclose(fp);
         return false;
     }
-    fclose(fp);
 
     int type = values.attributes[index].type;
     int size = values.attributes[index].length;

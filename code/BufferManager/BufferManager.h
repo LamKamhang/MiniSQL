@@ -32,7 +32,6 @@ private:
 private:
 	bool ReplaceBlock(std::string FileName, int Offset, int i);	//i表示buffer中将要被替换的block
 	void InitBlock(Block* CurrBlock);
-	bool WriteBackAll();
 	bool WriteBack(int Replaced);
 
 	//void CleanWritten(Block* CurrBlock);
@@ -46,4 +45,5 @@ public:
 	void SetAccessed(Block* CurrBlock);	//访问标记
 	void SetLock(Block* CurrBlock);	//锁标记
 	void UnLock(Block* CurrBlock){CurrBlock->IsLocked = false;};
+	bool WriteBackAll();
 };

@@ -49,10 +49,12 @@ records RecordManager::SelectForCreateIndex(miniCreateIndex I,table t)
 	Block* b;
 	BufferManager bm;
 	b=bm.GetBlock(I.tableName,0);
-	char* data; 
+	char* data=b->data; 
 	int i,offset=1;
-	int tempos,pos=0;
+	int pos=0;
 	int num=t.attributeNum;
+	for (i = 0; i < 4096; i++)if (data[i] != 0)break;
+	if (i == 4096)return record;
 	while(b)//记录未被读空 
 	{
 		data=b->data;
@@ -137,7 +139,6 @@ int RecordManager::LenOfRecord(miniInsert I,table t)
 {
 	int lenR=0;
     int i;
-    int k;
     for(i=0;i<I.insertNum-1;i++)
     {
     	switch(I.cond[i].type)
@@ -160,11 +161,53 @@ int RecordManager::LenOfRecord(miniInsert I,table t)
 TuplePtr RecordManager::InsertRecord(miniInsert I,table t)
 {
 	TuplePtr tp;
-	int i=1,k;
+	int i=1;
 	Block* b;
+	char * data;
+	int offset = 1;
 	BufferManager bm;
 	b=bm.GetBlock(I.tableName,0);
-    int pos=FindEnd(b->data);
+
+	int unique[32];
+	for (i = 0; i < t.attributeNum; i++)
+	{
+		unique[i] = 0;
+		if (t.attributes[i].unique || t.attributes[i].primary)
+		{
+			unique[i] = 1;
+		}
+	}
+	int pos = 0,tempos;
+	while (b)
+	{
+		for (i = 0; i < 4096; i++)if (b->data[i] != 0)break;
+		if (i == 4096) break;
+		data = b->data;
+		while (data[pos - 1] != -2 || pos == 0)
+		{
+			while (data[pos] == -1)pos = FindNextRecord(b, pos);
+			for (i = 0; i<I.insertNum; i++)
+			{
+				if (unique[i])
+				{
+					I.cond[i].oprt = EQ;
+					tempos = findAttri(b, pos, i);
+					if (cmpAttri(b, tempos, I.cond[i]))
+						break;
+				}
+			}
+			if (i != I.insertNum)//不符合条件 
+			{
+				cout << "Attributes interrupt" << endl;
+				tp.offset = -1;
+				return tp;
+			}
+			pos = FindNextRecord(b, pos);
+		}
+		b = bm.GetBlock(I.tableName, offset++);
+	}
+	b = bm.GetBlock(I.tableName, 0);
+    pos=FindEnd(b->data);
     if(pos!=0)b->data[pos++]=253;
     int lenR=LenOfRecord(I,t);//待测试 
     while(lenR+pos>=1024*4)
@@ -177,7 +220,7 @@ TuplePtr RecordManager::InsertRecord(miniInsert I,table t)
     }
 	tp.blockID = b->Offset;
 	tp.offset = pos;
-    for(i=0;i<I.insertNum-1;i++)
+    for(i=0;i<I.insertNum;i++)
     {
     	switch(I.cond[i].type)
     	{
@@ -221,6 +264,7 @@ bool RecordManager::DeleteRecord(miniDelete I,table t)
 		while(data[pos-1]!=-2)
 		{
 			while (data[pos] == -1)pos = FindNextRecord(b, pos);
+			if (data[pos - 1] == -2)break;
 			for(i=0;i<num;i++)
 			{
 				tempos=findAttri(b,pos,order[i]);
@@ -241,7 +285,6 @@ bool RecordManager::DeleteRecord(miniDelete I,table t)
 
 bool RecordManager::DeleteRecordByPos(Block* b,int pos,miniDelete I,table t)
 {
-	char* data;
 	int tempos,i;
 	int num=I.conditionNum;
 	int order[32];
@@ -275,6 +318,8 @@ records RecordManager::SelectRecord(miniSelect I,table t)
 	int i,offset=1;
 	int num=t.attributeNum;
 	int order[32];
+	for (i = 0; i < 4096; i++)if (b->data[i] != 0)break;
+	if (i == 4096)return record;
 	for(i=0;i<I.conditionNum;i++)
 	{
 		order[i]=located(I.cond[i].attributeName,t);
@@ -285,6 +330,7 @@ records RecordManager::SelectRecord(miniSelect I,table t)
 		while(data[pos-1]!=-2||pos==0)
 		{
 			while(data[pos]==-1)pos=FindNextRecord(b,pos);
+			if (data[pos - 1] == -2)break;
 			for(i=0;i<I.conditionNum;i++)
 			{
 				tempos=findAttri(b,pos,order[i]);
@@ -305,7 +351,7 @@ records RecordManager::SelectRecord(miniSelect I,table t)
 records RecordManager::SelectRecordByPos(Block* b,int pos,miniSelect I,table t)
 {
 	records record(t);
-	char* data,*temp;
+	char* data;
 	int i,tempos;
 	int num=I.conditionNum;
 	int order[32];
@@ -357,8 +403,9 @@ int RecordManager::findAttri(Block *block, int posBegin,int order)
 	for(i=0;i<order;i++)
 	{
 		while(p[posBegin]!=','&&p[posBegin]!=-3&&p[posBegin]!=-2)posBegin++;
+		posBegin++;
 	}
-	return posBegin+1;
+	return posBegin;
 }
 
 bool RecordManager::cmpAttri(Block *block, int posBegin,condition c)
@@ -396,12 +443,12 @@ bool RecordManager::cmpAttri(Block *block, int posBegin,condition c)
 			s=getString(block,posBegin);
 			switch (c.oprt)
 			{
-			case EQ:if (s == c.stringValues)return 1; break;
-			case NE:if (s != c.stringValues)return 1; break;
-			case LE:if (s <= c.stringValues)return 1; break;
-			case GE:if (s >= c.stringValues)return 1; break;
-			case LT:if (s <  c.stringValues)return 1; break;
-			case GT:if (s >  c.stringValues)return 1; break;
+			case EQ:if (cmpstring(s, c.stringValues)==0)return 1; break;
+			case NE:if (cmpstring(s, c.stringValues)!=0)return 1; break;
+			case LE:if (cmpstring(s, c.stringValues)<=0)return 1; break;
+			case GE:if (cmpstring(s, c.stringValues)>=0)return 1; break;
+			case LT:if (cmpstring(s, c.stringValues)< 0)return 1; break;
+			case GT:if (cmpstring(s, c.stringValues)> 0)return 1; break;
 			}
 			return 0;
 		default:
@@ -424,6 +471,19 @@ void RecordManager::fullblack(Block *block, int posBegin)
 	char* p=block->data+posBegin;
 	while (p[i] != -3 && p[i] != -2) { if (p[i] != ',')p[i] = 255; i++; }
 	return; 
+}
+int RecordManager::cmpstring(std::string s1, std::string s2)
+{
+	int i=0;
+	while (s1[i] != 0 && s2[i] != 0)
+	{
+		if (s1[i] > s2[i])return 1;
+		if (s1[i] < s2[i])return -1;
+		i++;
+	}
+	if (s1[i] == 0 && s2[i] == 0)return 0;
+	if (s1[i] == 0)return -1;
+	else return 1;
 }
 
 int RecordManager::getInt(Block *block, int posBegin)

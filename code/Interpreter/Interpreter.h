@@ -1,9 +1,4 @@
-﻿#pragma once
-#ifndef _CRT_SECURE_NO_WARNINGS
-#define _CRT_SECURE_NO_WARNINGS
-#endif // !_CRT_SECURE_NO_WARNINGS
-
-
+#pragma once
 #include <string>
 #include <iostream>
 #include <stdlib.h>
@@ -93,4 +88,5 @@ struct miniStatement
 	miniUseDatabase MiniUseDatabase;
 
 };
-miniStatement miniInterpreter(char* in);
+miniStatement miniInterpreter(const std::string &in);
+

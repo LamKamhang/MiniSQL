@@ -1,4 +1,4 @@
-﻿#ifndef _CRT_SECURE_NO_WARNINGS
+#ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 #endif // !_CRT_SECURE_NO_WARNINGS
 
@@ -18,6 +18,7 @@ public:
 	bool writeTableFile();
 	bool isTable(std::string tableName);
 	bool isAttribute(std::string tableName, std::string attributeName);
+	int getAttributeNum(std::string tableName);
 	bool createTable(miniCreateTable I);
 	bool dropTable(std::string tableName);
 	bool readIndexFile();
@@ -40,3 +41,4 @@ private:
 };
 
 int  splitString(const std::string & strSrc, const std::string& strDelims, std::vector<std::string>& strDest);
+

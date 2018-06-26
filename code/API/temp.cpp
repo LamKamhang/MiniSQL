@@ -1,7 +1,7 @@
 #include "API.h"
 #include <iomanip>
 using namespace std;
-size_t MINISQL_BASE::counter;
+size_t MINISQL_BASE::counter = 0;
 
 bool API::Insert(miniInsert I)
 {
@@ -244,9 +244,4 @@ bool API::DropIndex(miniDropIndex I)
 	counter++;
 	cout << "Drop the index successfully!" << endl;
 	return 1;
-}
-
-bool API::writeBack()
-{
-	return bm.WriteBackAll();
 }

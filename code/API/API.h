@@ -27,6 +27,7 @@ public:
 	bool Delete(miniDelete I);
 	bool CreateIndex(miniCreateIndex I);
 	bool DropIndex(miniDropIndex I);
+	bool writeBack();
 private:
 	CatalogManager cm;
 	RecordManager rm;
