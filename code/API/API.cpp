@@ -1,3 +1,4 @@
+//#define RES_OUTPUT
 #include "API.h"
 #include <iomanip>
 using namespace std;
@@ -13,7 +14,7 @@ bool API::Insert(miniInsert I)
 	if (tp.offset == -1)
 		return 0;
 	string indexName;
-	for (i = 0; i < I.insertNum - 1; i++)
+	for (i = 0; i < I.insertNum; i++)
 	{
 		if (cm.isIndex(I.tableName, t.attributes[i].name))
 		{
@@ -22,7 +23,9 @@ bool API::Insert(miniInsert I)
 		}
 	}
 	counter++;
+#ifdef RES_OUTPUT
 	cout << "Insert successfully!" << endl;
+#endif
 	return 1;
 }
 
@@ -32,7 +35,9 @@ bool API::Create(miniCreateTable I)
 	cm.createTable(I);
 	//index.create
 	counter++;
+#ifdef RES_OUTPUT
 	cout << "Create the table successfully!" << endl;
+#endif
 	return 1;
 }
 
@@ -41,7 +46,9 @@ bool API::Drop(miniDropTable I)
 	bm.DeleteFileBlock(I.tableName);
 	cm.dropTable(I.tableName);
 	counter++;
+#ifdef RES_OUTPUT
 	cout << "Drop the table successfully!" << endl;
+#endif
 	return 1;
 }
 
@@ -71,7 +78,9 @@ bool API::Select(miniSelect I)
 	}
 	if (r.recordNum == 0)
 	{
+#ifdef RES_OUTPUT
 		cout << "Empty set!" << endl;
+#endif
 		return 1;
 	}
 	vector<int> wide;
@@ -206,7 +215,9 @@ bool API::Delete(miniDelete I)
 		}
 	}
 	counter++;
+#ifdef RES_OUTPUT
 	cout << "Delete successfully!" << endl;
+#endif
 	return 1;
 }
 
@@ -218,7 +229,9 @@ bool API::CreateIndex(miniCreateIndex I)
 	t = cm.getTable(I.tableName);
 	if (cm.isIndex(I.indexName))
 	{
+#ifdef RES_OUTPUT
 		cout << "The index has already existed!" << endl;
+#endif
 		return false;
 	}
 	else
@@ -233,7 +246,9 @@ bool API::CreateIndex(miniCreateIndex I)
 		im._create(I.indexName, r, i);
 	}
 	counter++;
+#ifdef RES_OUTPUT
 	cout << "Create the index successfully!" << endl;
+#endif
 	return true;
 }
 
@@ -242,7 +257,9 @@ bool API::DropIndex(miniDropIndex I)
 	cm.dropIndex(I.indexName);
 	im._drop(I.indexName);
 	counter++;
+#ifdef RES_OUTPUT
 	cout << "Drop the index successfully!" << endl;
+#endif
 	return 1;
 }
 

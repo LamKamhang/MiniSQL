@@ -38,8 +38,6 @@ int main(void)
 		while(statements.size())
 		{
 			line = statements.front();
-			cout << line << endl;
-			cout << statements.size() << endl;
 			statements.pop();
 			m = miniInterpreter(line);
 			switch (m.flag)

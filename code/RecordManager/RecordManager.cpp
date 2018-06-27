@@ -58,6 +58,7 @@ records RecordManager::SelectForCreateIndex(miniCreateIndex I,table t)
 	while(b)//记录未被读空 
 	{
 		data=b->data;
+		pos = 0;
 		while(data[pos-1]!=-2)
 		{
 			record.insert(b,pos);
@@ -183,10 +184,11 @@ TuplePtr RecordManager::InsertRecord(miniInsert I,table t)
 		for (i = 0; i < 4096; i++)if (b->data[i] != 0)break;
 		if (i == 4096) break;
 		data = b->data;
+		pos = 0;
 		while (data[pos - 1] != -2 || pos == 0)
 		{
 			while (data[pos] == -1)pos = FindNextRecord(b, pos);
-			for (i = 0; i<I.insertNum; i++)
+			for (i = 0; i<I.insertNum-1; i++)
 			{
 				if (unique[i])
 				{
@@ -196,9 +198,9 @@ TuplePtr RecordManager::InsertRecord(miniInsert I,table t)
 						break;
 				}
 			}
-			if (i != I.insertNum)//不符合条件 
+			if (i != I.insertNum - 1)//不符合条件 
 			{
-				cout << "Attributes interrupt" << endl;
+				cout << "There exists confilect arising from unique keys or the primary key." << endl;
 				tp.offset = -1;
 				return tp;
 			}
@@ -209,6 +211,7 @@ TuplePtr RecordManager::InsertRecord(miniInsert I,table t)
 	b = bm.GetBlock(I.tableName, 0);
     pos=FindEnd(b->data);
     if(pos!=0)b->data[pos++]=253;
+	i = 1;
     int lenR=LenOfRecord(I,t);//待测试 
     while(lenR+pos>=1024*4)
     {
@@ -261,6 +264,7 @@ bool RecordManager::DeleteRecord(miniDelete I,table t)
 	while(b)//记录未被读空 
 	{
 		data=b->data;
+		pos = 0;
 		while(data[pos-1]!=-2)
 		{
 			while (data[pos] == -1)pos = FindNextRecord(b, pos);
@@ -326,6 +330,7 @@ records RecordManager::SelectRecord(miniSelect I,table t)
 	}
 	while(b)//记录未被读空 
 	{
+		pos = 0;
 		data=b->data;
 		while(data[pos-1]!=-2||pos==0)
 		{

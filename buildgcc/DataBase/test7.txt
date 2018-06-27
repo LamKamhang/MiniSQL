@@ -1,2 +1,0 @@
-select * from t2 where num1>num2;
-select * from t2 where num1>num2 and num1>30;

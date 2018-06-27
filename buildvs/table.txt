@@ -1,0 +1,9 @@
+employee
+id int primary
+name char 32 unique
+gender char 1
+age int
+salary float
+country char 2
+email char 64 unique
+##

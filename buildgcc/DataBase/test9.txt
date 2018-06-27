@@ -1,3 +1,0 @@
-drop index name;
-drop table t2;
-drop database db;
