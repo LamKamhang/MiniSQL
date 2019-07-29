@@ -1,3 +1,0 @@
-E:/GitHub/MiniSQL/buildvs/CMakeFiles/minisql.dir
-E:/GitHub/MiniSQL/buildvs/CMakeFiles/ALL_BUILD.dir
-E:/GitHub/MiniSQL/buildvs/CMakeFiles/ZERO_CHECK.dir
